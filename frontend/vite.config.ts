@@ -53,14 +53,14 @@ export default defineConfig(({ mode }) => {
         // proxyTimeout = how long to wait for the target to respond (ms)
         // timeout      = how long the socket can be idle (ms)
         '/api/ai': {
-          target: env.VITE_API_URL || 'http://192.168.2.31:8000',
+          target: env.VITE_API_URL || 'http://localhost:8000',
           changeOrigin: true,
           secure: false,
           proxyTimeout: 300000,   // 5 minutes — covers worst-case CPU inference
           timeout: 300000,
         },
         '/api': {
-          target: env.VITE_API_URL || 'http://192.168.2.31:8000',
+          target: env.VITE_API_URL || 'http://localhost:8000',
           changeOrigin: true,
           secure: false,
           proxyTimeout: 30000,
@@ -69,7 +69,7 @@ export default defineConfig(({ mode }) => {
       },
 
       hmr: {
-        host: '192.168.2.31',
+        host: '192.168.2.1',
         port: 5173,
         // When Vite runs with https:true it serves over HTTPS, so HMR
         // WebSockets must use wss:// not ws:// — the mismatch was causing the

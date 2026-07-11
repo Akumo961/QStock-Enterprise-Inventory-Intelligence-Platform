@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Box, Stepper, Step, StepLabel, Button, Typography, Alert,
@@ -43,9 +42,10 @@ const BorrowProcess: React.FC<BorrowProcessProps> = ({ onComplete, onCancel }) =
   const [itemData, setItemData] = useState<ItemData | null>(null);
   const [itemQR, setItemQR]     = useState('');
 
-  const [quantity, setQuantity]     = useState(1);
+  const [quantity, setQuantity]     = useState<number | ''>('');
   const [purpose, setPurpose]       = useState('');
-  const [borrowDays, setBorrowDays] = useState(7);
+  const [notes, setNotes]           = useState('');
+  const [borrowDays, setBorrowDays] = useState<number | ''>('');
 
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
@@ -97,7 +97,8 @@ const BorrowProcess: React.FC<BorrowProcessProps> = ({ onComplete, onCancel }) =
       if (data.available_quantity < 1)
         throw new Error(fr ? 'Article non disponible' : 'Item not available');
       setItemData(data); setItemQR(qr);
-      setBorrowDays(data.max_borrow_days || 7);
+      setBorrowDays('');
+      setQuantity('');
       setActiveStep(adminMode ? 2 : 1);
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
@@ -118,13 +119,18 @@ const BorrowProcess: React.FC<BorrowProcessProps> = ({ onComplete, onCancel }) =
   };
 
   const handleBorrow = async () => {
+    if (!quantity || !borrowDays) {
+      setError(fr ? 'Veuillez entrer une quantité et une durée.' : 'Please enter a quantity and duration.');
+      return;
+    }
     setLoading(true); setError('');
     try {
       const body: any = {
         item_qr_code: itemQR,
-        quantity,
+        quantity: Number(quantity),
         purpose,
-        due_days: borrowDays,
+        notes: notes || undefined,
+        due_days: Number(borrowDays),
       };
       // Admin borrows for user: pass user_qr_code; otherwise omit (borrow for self)
       if (adminMode && userQR) body.user_qr_code = userQR;
@@ -262,28 +268,54 @@ const BorrowProcess: React.FC<BorrowProcessProps> = ({ onComplete, onCancel }) =
             <Grid item xs={6}>
               <TextField fullWidth label={fr ? 'Quantité' : 'Quantity'} type="number"
                 value={quantity}
-                onChange={e => setQuantity(Math.max(1, Math.min(itemData.available_quantity, parseInt(e.target.value) || 1)))}
+                placeholder="1"
+                onChange={e => {
+                  const val = parseInt(e.target.value);
+                  if (e.target.value === '') { setQuantity(''); return; }
+                  if (!isNaN(val)) setQuantity(Math.max(1, Math.min(itemData.available_quantity, val)));
+                }}
                 inputProps={{ min: 1, max: itemData.available_quantity }}
                 helperText={`Max: ${itemData.available_quantity}`} />
             </Grid>
             <Grid item xs={6}>
               <TextField fullWidth label={fr ? 'Durée (jours)' : 'Duration (days)'} type="number"
                 value={borrowDays}
-                onChange={e => setBorrowDays(Math.max(1, parseInt(e.target.value) || 7))}
+                placeholder={itemData.max_borrow_days ? String(itemData.max_borrow_days) : '7'}
+                onChange={e => {
+                  const val = parseInt(e.target.value);
+                  if (e.target.value === '') { setBorrowDays(''); return; }
+                  if (!isNaN(val)) {
+                    const max = itemData.max_borrow_days ?? 365;
+                    setBorrowDays(Math.min(max, Math.max(1, val)));
+                  }
+                }}
                 InputProps={{ startAdornment: <CalendarMonth sx={{ mr: 1, color: 'action.active' }} /> }}
-                inputProps={{ min: 1 }} />
+                inputProps={{ min: 1, max: itemData.max_borrow_days ?? 365 }}
+                helperText={itemData.max_borrow_days
+                  ? (fr ? `Max: ${itemData.max_borrow_days} jours` : `Max: ${itemData.max_borrow_days} days`)
+                  : undefined}
+              />
             </Grid>
             <Grid item xs={12}>
               <TextField fullWidth multiline rows={2}
                 label={fr ? 'Motif (optionnel)' : 'Purpose (optional)'}
+                placeholder={fr ? 'Ex: Activité scoute, sortie, atelier…' : 'e.g. Scout activity, outing, workshop…'}
                 value={purpose} onChange={e => setPurpose(e.target.value)} />
             </Grid>
             <Grid item xs={12}>
-              <Alert severity="info">
-                {fr ? `À retourner avant le ` : `Must be returned by `}
-                <strong>{new Date(Date.now() + borrowDays * 86400000).toLocaleDateString(fr ? 'fr-CA' : 'en-CA')}</strong>
-              </Alert>
+              <TextField fullWidth multiline rows={2}
+                label={fr ? 'Commentaire / Note (optionnel)' : 'Comment / Note (optional)'}
+                placeholder={fr ? "Informations supplémentaires pour l'administrateur…" : 'Additional info for the admin…'}
+                value={notes} onChange={e => setNotes(e.target.value)} />
             </Grid>
+            {borrowDays !== '' && (
+              <Grid item xs={12}>
+                <Alert severity="info">
+                  {fr ? "À retourner avant le " : "Must be returned by "}
+                  <strong>{new Date(Date.now() + Number(borrowDays) * 86400000).toLocaleDateString(fr ? 'fr-CA' : 'en-CA')}</strong>
+                </Alert>
+              </Grid>
+            )}
           </Grid>
         </Box>
       )}
@@ -335,7 +367,7 @@ const BorrowProcess: React.FC<BorrowProcessProps> = ({ onComplete, onCancel }) =
           {activeStep === confirmStep && (
             <Button variant="contained" onClick={handleBorrow}
               endIcon={loading ? <CircularProgress size={18} /> : <CheckCircle />}
-              disabled={loading || !itemData}
+              disabled={loading || !itemData || !quantity || !borrowDays}
               sx={{ bgcolor: '#2d6a4f' }}>
               {fr ? "Confirmer l'emprunt" : 'Confirm Borrow'}
             </Button>

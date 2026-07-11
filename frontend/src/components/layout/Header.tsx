@@ -99,11 +99,12 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
   ];
 
   const adminItems = [
-    { label: t('dashboard'),       path: '/admin/dashboard',    icon: <Dashboard /> },
-    { label: t('itemManagement'),  path: '/admin/items',        icon: <Inventory /> },
-    { label: t('userManagement'),  path: '/admin/users',        icon: <AccountCircle /> },
-    { label: language === 'fr' ? 'Commandes' : 'Orders',        path: '/admin/orders', icon: <Assignment /> },
-    { label: language === 'fr' ? 'Assistant IA' : 'AI Assistant', path: '/admin/ai-assistant', icon: <SmartToy /> },
+    { label: t('dashboard'),       path: '/admin/dashboard',      icon: <Dashboard /> },
+    { label: t('itemManagement'),  path: '/admin/items',          icon: <Inventory /> },
+    { label: t('userManagement'),  path: '/admin/users',          icon: <AccountCircle /> },
+    { label: language === 'fr' ? 'Commandes' : 'Orders',          path: '/admin/orders',        icon: <Assignment /> },
+    { label: language === 'fr' ? 'Transactions' : 'Transactions', path: '/admin/transactions',  icon: <Assignment /> },
+    { label: language === 'fr' ? 'Assistant IA' : 'AI Assistant', path: '/admin/ai-assistant',  icon: <SmartToy /> },
   ];
 
   return (

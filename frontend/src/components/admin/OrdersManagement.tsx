@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import {
   CheckCircle, Cancel, LocalShipping, HourglassEmpty,
-  ThumbDown, Edit, Delete, Search, FilterList,
+  ThumbDown, Edit, Delete, Search, FilterList, ChatBubbleOutline,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -253,9 +253,19 @@ const OrdersManagement: React.FC = () => {
                         </Box>
                       </TableCell>
                       <TableCell><Chip label={typeLabel(order.order_type)} size="small" variant="outlined" /></TableCell>
-                      <TableCell sx={{ maxWidth: 180 }}>
+                      <TableCell sx={{ maxWidth: 200 }}>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>{order.title}</Typography>
                         {order.item_name && <Typography variant="caption" color="text.secondary">📦 {order.item_name}</Typography>}
+                        {order.description && (
+                          <Tooltip title={order.description} arrow>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, cursor: 'help' }}>
+                              <ChatBubbleOutline sx={{ fontSize: 13, color: 'primary.main' }} />
+                              <Typography variant="caption" color="primary.main" noWrap sx={{ maxWidth: 130 }}>
+                                {order.description}
+                              </Typography>
+                            </Box>
+                          </Tooltip>
+                        )}
                       </TableCell>
                       <TableCell>{statusChip(order.status)}</TableCell>
                       <TableCell><Typography variant="caption">{fmt(order.needed_date)}</Typography></TableCell>
@@ -313,7 +323,14 @@ const OrdersManagement: React.FC = () => {
                     <Typography variant="body2"><strong>{fr ? 'Utilisateur:' : 'User:'}</strong> {editOrder.user_name}</Typography>
                     <Typography variant="body2"><strong>{fr ? 'Type:' : 'Type:'}</strong> {typeLabel(editOrder.order_type)}</Typography>
                     <Typography variant="body2"><strong>{fr ? 'Titre:' : 'Title:'}</strong> {editOrder.title}</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5, fontStyle: 'italic', color: 'text.secondary' }}>{editOrder.description}</Typography>
+                    {editOrder.description && (
+                      <Box sx={{ mt: 1, p: 1.5, bgcolor: '#f0f4ff', borderRadius: 1, borderLeft: '3px solid #1976d2' }}>
+                        <Typography variant="caption" color="primary.main" fontWeight={600}>
+                          {fr ? "💬 Commentaire de l'utilisateur :" : '💬 User comment:'}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>{editOrder.description}</Typography>
+                      </Box>
+                    )}
                     {editOrder.needed_date && (
                       <Typography variant="body2"><strong>{fr ? 'Souhaité le:' : 'Needed by:'}</strong> {fmt(editOrder.needed_date)}</Typography>
                     )}

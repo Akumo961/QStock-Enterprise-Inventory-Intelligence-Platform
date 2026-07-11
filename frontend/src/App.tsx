@@ -25,6 +25,7 @@ import UserManagement from './components/admin/UserManagement';
 import ItemManagement from './components/admin/ItemManagement';
 import Reports from './components/admin/Reports';
 import OrdersManagement from './components/admin/OrdersManagement';
+import TransactionsManagement from './components/admin/TransactionsManagement';
 import AIAssistant from './pages/AIAssistant';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import AdminRoute from './components/common/AdminRoute';
@@ -97,6 +98,7 @@ function App() {
                   <Route path="users" element={<UserManagement />} />
                   <Route path="items" element={<ItemManagement />} />
                   <Route path="orders" element={<OrdersManagement />} />
+                  <Route path="transactions" element={<TransactionsManagement />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="ai-assistant" element={<AIAssistant />} />
                 </Route>

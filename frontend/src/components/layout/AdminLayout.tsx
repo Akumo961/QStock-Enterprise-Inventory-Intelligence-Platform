@@ -7,7 +7,7 @@
 
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Box, Typography, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
-import { Dashboard, People, Inventory, BarChart, ShoppingCart, SmartToy } from '@mui/icons-material';
+import { Dashboard, People, Inventory, BarChart, ShoppingCart, SmartToy, SwapHoriz } from '@mui/icons-material';
 import Header from './Header';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../context/LanguageContext';
@@ -18,12 +18,13 @@ const AdminLayout = () => {
   const location = useLocation();
 
   const navItems = [
-    { label: t('dashboard'), path: '/admin/dashboard', icon: <Dashboard /> },
-    { label: t('userManagement'), path: '/admin/users', icon: <People /> },
-    { label: t('itemManagement'), path: '/admin/items', icon: <Inventory /> },
-    { label: language === 'fr' ? 'Commandes' : 'Orders', path: '/admin/orders', icon: <ShoppingCart /> },
-    { label: t('reports'), path: '/admin/reports', icon: <BarChart /> },
-    { label: language === 'fr' ? 'Assistant IA' : 'AI Assistant', path: '/admin/ai-assistant', icon: <SmartToy /> },
+    { label: t('dashboard'),                                         path: '/admin/dashboard',     icon: <Dashboard /> },
+    { label: t('userManagement'),                                    path: '/admin/users',         icon: <People /> },
+    { label: t('itemManagement'),                                    path: '/admin/items',         icon: <Inventory /> },
+    { label: language === 'fr' ? 'Commandes'    : 'Orders',         path: '/admin/orders',        icon: <ShoppingCart /> },
+    { label: language === 'fr' ? 'Transactions' : 'Transactions',   path: '/admin/transactions',  icon: <SwapHoriz /> },
+    { label: t('reports'),                                           path: '/admin/reports',       icon: <BarChart /> },
+    { label: language === 'fr' ? 'Assistant IA' : 'AI Assistant',   path: '/admin/ai-assistant',  icon: <SmartToy /> },
   ];
 
   return (
