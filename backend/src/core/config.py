@@ -4,19 +4,21 @@ import os
 
 
 class Settings(BaseSettings):
-    """Application settings and configuration"""
+    """Application settings and configuration."""
 
     # Application
-    APP_NAME: str = "QR Inventory System"
+    APP_NAME: str = "QStock"
     APP_VERSION: str = "1.0.0"
-    DEBUG: bool = True
+    DEBUG: bool = False
     ENVIRONMENT: str = "development"
 
-    # Database - Simple username without special characters
-    DATABASE_URL: str = "postgresql://postgres@localhost:3016/qr_inventory"
+    # Database
+    # Keep the URL configurable through the environment so credentials are
+    # never committed to source control.
+    DATABASE_URL: str = "postgresql://qr_user@localhost:5432/qr_inventory"
 
-    # Security
-    SECRET_KEY: str = "your-secret-key-here-change-in-production"
+    # Security - no production secret is stored in source control.
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
@@ -24,11 +26,11 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:5173",
-        "https://localhost:5173",      # Vite dev with basicSsl()
+        "https://localhost:5173",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:3000",
         "http://192.168.2.31:5173",
-        "https://192.168.2.31:5173",   # Vite dev with basicSsl() on LAN
+        "https://192.168.2.31:5173",
         "http://192.168.2.31:3000",
         "https://192.168.2.31:3000",
     ]
@@ -51,16 +53,15 @@ class Settings(BaseSettings):
     MAIL_TLS: bool = True
     MAIL_SSL: bool = False
 
-    # Admin Initial Setup - THIS is your admin user for the app
-    INITIAL_ADMIN_EMAIL: str = "ali.el-sayed-ali@scouthorizon.onmicrosoft.com"
-    INITIAL_ADMIN_PASSWORD: str = "K41d0Dr@gonW0r1d!"
+    # Initial admin setup - credentials must come from the environment.
+    INITIAL_ADMIN_EMAIL: str = ""
+    INITIAL_ADMIN_PASSWORD: str = ""
     INITIAL_ADMIN_NAME: str = "System Administrator"
-    INITIAL_ADMIN_PHONE: str = "+1-000-000-0000"
+    INITIAL_ADMIN_PHONE: str = ""
 
     # -------------------------------------------------------------------------
-    # AI Assistant (optional — set one of the two blocks below)
+    # AI Assistant
     # -------------------------------------------------------------------------
-    # Option A: OpenAI
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
 
@@ -68,76 +69,44 @@ class Settings(BaseSettings):
     OLLAMA_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "qwen3:8b"
 
-    # AI Assistant tuning (all optional, safe defaults — only affect the
-    # chatbot's RAG answer-synthesis step, see src/ai/service.py)
-    AI_MAX_HISTORY_TURNS: int = 3        # conversation turns remembered per user (kept short for speed)
-    AI_ANSWER_MAX_TOKENS: int = 120      # max length of the synthesized answer (kept short for speed)
-    AI_ANSWER_NUM_CTX: int = 4096        # Ollama context window for the answer call
-    # NOTE: this MUST match AI_SQL_NUM_CTX whenever OLLAMA_MODEL and
-    # OLLAMA_ANSWER_MODEL point at the same model (your current .env: both
-    # qwen3:8b). Ollama's runner is keyed by (model, num_ctx) — if the same
-    # model is called with two different num_ctx values back-to-back, Ollama
-    # tears down and reloads the whole model to satisfy the new context size.
-    # With a 5.7GB model split 59%/41% CPU/GPU, that reload is NOT cheap —
-    # this was very likely firing on every single chat turn (SQL call at
-    # num_ctx=4096, then immediately the answer call at the old default of
-    # 2048), doubling the cost of every turn. See `ollama ps` CONTEXT column:
-    # if it doesn't match what you expect mid-conversation, this is why.
-    AI_CONTEXT_ROW_LIMIT: int = 15       # max retrieved rows fed into the answer prompt (kept short for speed)
+    # AI Assistant tuning
+    AI_MAX_HISTORY_TURNS: int = 3
+    AI_ANSWER_MAX_TOKENS: int = 120
+    AI_ANSWER_NUM_CTX: int = 4096
+    AI_CONTEXT_ROW_LIMIT: int = 15
 
-    # Optional: use a different (e.g. smaller/faster) model just for the
-    # conversational answer-phrasing step, separate from SQL generation.
-    # Leave empty to use OLLAMA_MODEL / OPENAI_MODEL for both steps (default).
+    # Optional separate answer model. Empty means use the main model.
     OLLAMA_ANSWER_MODEL: str = ""
     OPENAI_ANSWER_MODEL: str = ""
 
-    # Optional: force Ollama to offload this many model layers to GPU.
-    # Leave unset (None) to let Ollama auto-decide (default, safe choice).
-    # Useful if `ollama ps` shows a more CPU-heavy split than your GPU's
-    # VRAM should require — try a high number like 99; Ollama caps it at
-    # the model's real layer count automatically.
+    # Optional Ollama GPU layer override.
     OLLAMA_NUM_GPU: Optional[int] = None
 
-    # httpx timeout (seconds) for calls to Ollama's /api/chat. `read` is the
-    # one that matters most: it bounds how long we wait for the model to
-    # finish generating tokens once the request has been accepted. A large
-    # prompt + an 8B model on a slow GPU/CPU can legitimately take well past
-    # 60s, so this must be generous. `connect`/`write`/`pool` stay tight
-    # since those failures mean Ollama itself isn't reachable at all.
+    # Ollama HTTP timeouts.
     OLLAMA_CONNECT_TIMEOUT: float = 30.0
     OLLAMA_READ_TIMEOUT: float = 300.0
     OLLAMA_WRITE_TIMEOUT: float = 30.0
     OLLAMA_POOL_TIMEOUT: float = 30.0
 
-    # SQL-generation call tuning, kept separate from AI_ANSWER_* above.
-    AI_SQL_MAX_TOKENS: int = 300         # a single SELECT rarely needs more; was 450
+    # SQL-generation tuning.
+    AI_SQL_MAX_TOKENS: int = 300
     AI_SQL_NUM_CTX: int = 4096
 
-    # qwen3 (and other hybrid "thinking" models) reason internally by default
-    # in Ollama unless `think` is explicitly set to false. For SQL generation
-    # and short grounded answers we want fast, deterministic output, not a
-    # chain-of-thought trace — and Ollama has a known issue where reasoning
-    # tokens can consume the entire num_predict/max_tokens budget, leaving an
-    # empty final answer. Set to true only if you specifically want qwen3 to
-    # show its reasoning (slower, and budgets above must be raised to fit it).
+    # Disable internal model reasoning for fast, deterministic SQL/answers.
     OLLAMA_THINK: bool = False
 
-    # On CPU/GPU-split hardware, even a short LLM "phrase these rows nicely"
-    # call can take 20-30+ seconds — far more than the SQL generation step
-    # for templated queries, which can be skipped entirely. When True, any
-    # plain item/user list result is formatted directly in Python instead of
-    # being sent to the LLM for phrasing. Set to False if you'd rather always
-    # get the LLM's more natural prose and are willing to pay the latency.
+    # Format simple list/data responses directly in Python to avoid an
+    # unnecessary LLM call and reduce latency/cost.
     AI_DETERMINISTIC_LIST_ANSWERS: bool = True
 
     class Config:
         env_file = ".env"
-        env_file_encoding = 'utf-8'
+        env_file_encoding = "utf-8"
         case_sensitive = True
         extra = "ignore"
 
 
 settings = Settings()
 
-# Ensure upload directory exists
+# Ensure upload directory exists.
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
