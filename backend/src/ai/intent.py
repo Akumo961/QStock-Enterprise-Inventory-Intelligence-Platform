@@ -1,4 +1,10 @@
-"""Intent detection for the QStock assistant."""
+"""Intent detection for the QStock assistant.
+
+Routing is deliberately conservative: questions asking for live inventory
+state go to SQL, while explanatory/procedural questions stay in general chat.
+The rules cover both English and French because the product supports both UI
+languages.
+"""
 
 from dataclasses import dataclass
 from enum import Enum
@@ -21,7 +27,11 @@ _DATA_ACTION_RE = re.compile(
     r"\b("
     r"show|list|find|search|which|who|what|when|where|how many|count|"
     r"compare|statistics|stats|highest|lowest|most|least|borrowed|available|"
-    r"maintenance|overdue|stock|inventory|items?|users?|transactions?|requests?"
+    r"maintenance|overdue|stock|inventory|items?|users?|transactions?|requests?|"
+    r"affiche|afficher|liste|lister|trouve|trouver|recherche|rechercher|"
+    r"quel(?:le)?s?|qui|combien|compte|comparer|statistiques?|plus|moins|"
+    r"emprunte(?:s|e)?|disponible(?:s)?|maintenance|retard(?:s)?|stock|"
+    r"inventaire|article(?:s)?|utilisateur(?:s)?|transaction(?:s)?|demande(?:s)?"
     r")\b",
     re.IGNORECASE,
 )
@@ -30,24 +40,33 @@ _GENERAL_RE = re.compile(
     r"\b("
     r"what can you do|help|explain|how do you work|what is low stock|"
     r"what does low stock mean|what is available|what does available mean|"
-    r"inventory status|statuses|status mean|examples?"
+    r"inventory status|statuses|status mean|examples?|"
+    r"que peux[- ]tu faire|aide|explique|comment fonctionnes[- ]tu|"
+    r"qu'est[- ]ce que le stock faible|que signifie le stock faible|"
+    r"qu'est[- ]ce qui est disponible|que signifie disponible|"
+    r"statut(?:s)? de l'inventaire|que signifie le statut|exemples?"
     r")\b",
     re.IGNORECASE,
 )
 
-# "How do I borrow an item?" / "How to request a laptop?" style questions ask
-# about the *process*, not live data, even though they mention a data noun
-# (item/laptop/borrow) that would otherwise trip _DATA_ACTION_RE. Without this,
-# classify_intent() routes these straight into the SQL pipeline.
+# Process questions should not become SQL requests merely because they mention
+# an inventory noun. Example: "How do I borrow a laptop?" / "Comment emprunter
+# un ordinateur ?" asks for instructions, not live data.
 _PROCEDURAL_RE = re.compile(
-    r"\bhow (?:do|can|could|should) (?:i|we|you)\b|\bhow to\b",
+    r"\bhow (?:do|can|could|should) (?:i|we|you)\b|\bhow to\b|"
+    r"\bcomment (?:puis[- ]je|peut[- ]on|faire|emprunter|demander|retourner)\b|"
+    r"\bcomment .*\b(?:emprunter|demander|retourner|utiliser)\b",
     re.IGNORECASE,
 )
 
 _FOLLOW_UP_RE = re.compile(
     r"\b("
     r"only|those|ones|them|that|these|available|borrowed|dell|hp|apple|"
-    r"lenovo|maintenance|overdue|current|now|this month|which are|who has"
+    r"lenovo|maintenance|overdue|current|now|this month|which are|who has|"
+    r"seulement|ceux|celles|ceux[- ]ci|celles[- ]ci|ce|cette|ces|"
+    r"disponibles?|emprunte(?:s|e)?|dell|hp|apple|lenovo|maintenance|"
+    r"retard(?:s)?|actuel(?:le)?s?|maintenant|ce mois[- ]ci|lesquels|"
+    r"lesquelles|qui a"
     r")\b",
     re.IGNORECASE,
 )
@@ -68,11 +87,21 @@ def classify_intent(message: str, has_history: bool = False) -> IntentResult:
         return IntentResult(Intent.GENERAL_CHAT, 0.92, "general assistant question")
 
     if _PROCEDURAL_RE.search(lowered) and not any(
-        token in lowered for token in ("show", "list", "my", "current", "this month")
+        token in lowered
+        for token in (
+            "show", "list", "my", "current", "this month",
+            "affiche", "afficher", "liste", "combien", "maintenant", "ce mois",
+        )
     ):
         return IntentResult(Intent.GENERAL_CHAT, 0.85, "asks about a process/how-to, not live data")
 
-    if is_general and not any(token in lowered for token in ("item", "user", "borrow", "how many", "show", "list", "which")):
+    if is_general and not any(
+        token in lowered
+        for token in (
+            "item", "user", "borrow", "how many", "show", "list", "which",
+            "article", "utilisateur", "emprunt", "combien", "affiche", "liste", "quel",
+        )
+    ):
         return IntentResult(Intent.GENERAL_CHAT, 0.74, "general inventory concept")
 
     if has_data_action:
