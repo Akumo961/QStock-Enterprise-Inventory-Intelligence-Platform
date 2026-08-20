@@ -99,6 +99,14 @@ class Settings(BaseSettings):
     # unnecessary LLM call and reduce latency/cost.
     AI_DETERMINISTIC_LIST_ANSWERS: bool = True
 
+    # -------------------------------------------------------------------------
+    # AI performance instrumentation
+    # -------------------------------------------------------------------------
+    # Bounded in-process metrics are intentionally lightweight. They contain
+    # aggregate timings/counters only, never prompts, SQL, user IDs, or PII.
+    AI_METRICS_MAX_SAMPLES: int = 1000
+    AI_PERFORMANCE_LOGGING: bool = True
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
