@@ -1,3 +1,5 @@
+import pytest
+
 from src.ai.policy import (
     looks_like_prompt_injection,
     normalize_user_message,
@@ -18,8 +20,6 @@ def test_user_message_is_normalized_and_bounded():
 
 
 def test_empty_and_oversized_messages_are_rejected():
-    import pytest
-
     with pytest.raises(ValueError):
         validate_user_message("   ")
     with pytest.raises(ValueError):
