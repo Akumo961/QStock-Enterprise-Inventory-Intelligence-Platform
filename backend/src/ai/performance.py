@@ -8,8 +8,7 @@ external metrics backend without changing the AI pipeline API.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from statistics import median
+from dataclasses import dataclass
 from threading import Lock
 from typing import Iterable
 
@@ -60,13 +59,11 @@ class AIMetrics:
             return AIMetricsSnapshot(0, 0.0, 0.0, 0, 0, 0, 0.0, 0.0, 0.0)
 
         latencies = sorted(sample.total_ms for sample in samples)
-        p50 = _percentile(latencies, 0.50)
-        p95 = _percentile(latencies, 0.95)
         count = len(samples)
         return AIMetricsSnapshot(
             requests=count,
-            total_ms_p50=p50,
-            total_ms_p95=p95,
+            total_ms_p50=_percentile(latencies, 0.50),
+            total_ms_p95=_percentile(latencies, 0.95),
             llm_calls_total=sum(s.llm_calls for s in samples),
             input_tokens_total=sum(s.input_tokens for s in samples),
             output_tokens_total=sum(s.output_tokens for s in samples),
