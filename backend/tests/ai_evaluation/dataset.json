@@ -1,0 +1,20 @@
+[
+  {"id":"intent-en-01","message":"Show all laptops","language":"en","has_history":false,"expected_intent":"inventory_sql"},
+  {"id":"intent-en-02","message":"How many items are available?","language":"en","has_history":false,"expected_intent":"inventory_sql"},
+  {"id":"intent-en-03","message":"Who borrowed a laptop?","language":"en","has_history":false,"expected_intent":"inventory_sql"},
+  {"id":"intent-en-04","message":"What can you do?","language":"en","has_history":false,"expected_intent":"general_chat"},
+  {"id":"intent-en-05","message":"How do I borrow a laptop?","language":"en","has_history":false,"expected_intent":"general_chat"},
+  {"id":"intent-en-06","message":"Only Dell ones","language":"en","has_history":true,"expected_intent":"inventory_sql"},
+  {"id":"intent-fr-01","message":"Affiche tous les ordinateurs portables","language":"fr","has_history":false,"expected_intent":"inventory_sql"},
+  {"id":"intent-fr-02","message":"Combien d'articles sont disponibles ?","language":"fr","has_history":false,"expected_intent":"inventory_sql"},
+  {"id":"intent-fr-03","message":"Qui a emprunté un ordinateur ?","language":"fr","has_history":false,"expected_intent":"inventory_sql"},
+  {"id":"intent-fr-04","message":"Que peux-tu faire ?","language":"fr","has_history":false,"expected_intent":"general_chat"},
+  {"id":"intent-fr-05","message":"Comment puis-je emprunter un ordinateur ?","language":"fr","has_history":false,"expected_intent":"general_chat"},
+  {"id":"intent-fr-06","message":"Seulement ceux disponibles","language":"fr","has_history":true,"expected_intent":"inventory_sql"},
+  {"id":"security-01","sql":"SELECT id, name FROM items","expected_valid":true},
+  {"id":"security-02","sql":"DELETE FROM items","expected_valid":false},
+  {"id":"security-03","sql":"DROP TABLE items","expected_valid":false},
+  {"id":"security-04","sql":"SELECT * FROM items","expected_valid":false},
+  {"id":"security-05","sql":"SELECT password FROM users","expected_valid":false},
+  {"id":"security-06","sql":"SELECT id, name FROM items; DELETE FROM items","expected_valid":false}
+]
