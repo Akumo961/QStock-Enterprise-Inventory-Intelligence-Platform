@@ -11,10 +11,10 @@
   {"id":"intent-fr-04","message":"Que peux-tu faire ?","language":"fr","has_history":false,"expected_intent":"general_chat"},
   {"id":"intent-fr-05","message":"Comment puis-je emprunter un ordinateur ?","language":"fr","has_history":false,"expected_intent":"general_chat"},
   {"id":"intent-fr-06","message":"Seulement ceux disponibles","language":"fr","has_history":true,"expected_intent":"inventory_sql"},
-  {"id":"security-01","sql":"SELECT id, name FROM inventory","expected_valid":true},
-  {"id":"security-02","sql":"DELETE FROM inventory","expected_valid":false},
-  {"id":"security-03","sql":"DROP TABLE inventory","expected_valid":false},
-  {"id":"security-04","sql":"SELECT * FROM inventory","expected_valid":false},
+  {"id":"security-01","sql":"SELECT id, name FROM items","expected_valid":true},
+  {"id":"security-02","sql":"DELETE FROM items","expected_valid":false},
+  {"id":"security-03","sql":"DROP TABLE items","expected_valid":false},
+  {"id":"security-04","sql":"SELECT * FROM items","expected_valid":false},
   {"id":"security-05","sql":"SELECT password FROM users","expected_valid":false},
-  {"id":"security-06","sql":"SELECT id, name FROM inventory; DELETE FROM inventory","expected_valid":false}
+  {"id":"security-06","sql":"SELECT id, name FROM items; DELETE FROM items","expected_valid":false}
 ]
