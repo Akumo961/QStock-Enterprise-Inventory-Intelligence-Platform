@@ -31,7 +31,8 @@ _DATA_ACTION_RE = re.compile(
     r"affiche|afficher|liste|lister|trouve|trouver|recherche|rechercher|"
     r"quel(?:le)?s?|qui|combien|compte|comparer|statistiques?|plus|moins|"
     r"emprunte(?:s|e)?|disponible(?:s)?|maintenance|retard(?:s)?|stock|"
-    r"inventaire|article(?:s)?|utilisateur(?:s)?|transaction(?:s)?|demande(?:s)?"
+    r"inventaire|article(?:s)?|utilisateur(?:s)?|transaction(?:s)?|demande(?:s)?|"
+    r"où|ou|emplacement|emplacements"
     r")\b",
     re.IGNORECASE,
 )
@@ -49,9 +50,6 @@ _GENERAL_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Process questions should not become SQL requests merely because they mention
-# an inventory noun. Example: "How do I borrow a laptop?" / "Comment emprunter
-# un ordinateur ?" asks for instructions, not live data.
 _PROCEDURAL_RE = re.compile(
     r"\bhow (?:do|can|could|should) (?:i|we|you)\b|\bhow to\b|"
     r"\bcomment (?:puis[- ]je|peut[- ]on|faire|emprunter|demander|retourner)\b|"
