@@ -6,6 +6,7 @@ import re
 import time
 from typing import Any
 
+from src.ai.location_templates import maybe_build_location_template_sql
 from src.ai.prompts import build_system_prompt, build_user_prompt
 from src.ai.query_templates import maybe_build_template_sql
 from src.ai.sql_guard import validate_sql
@@ -64,6 +65,25 @@ class SQLGenerator:
         timing.setdefault("ollama_sql", 0.0)
         timing.setdefault("validation", 0.0)
         timing.setdefault("template_match", 0.0)
+
+        # Location matching deliberately runs before the generic templates.
+        # Otherwise a broad "available" template can silently discard an
+        # explicit location such as "in A1" and answer for the whole inventory.
+        t0 = time.time()
+        location_template = maybe_build_location_template_sql(question)
+        timing["template_match"] += time.time() - t0
+        if location_template:
+            t0 = time.time()
+            ok, sql_or_reason = validate_sql(location_template.sql)
+            timing["validation"] += time.time() - t0
+            if ok:
+                return SQLGenerationResult(
+                    sql=sql_or_reason,
+                    raw_sql=location_template.sql,
+                    description=location_template.description,
+                    attempts=0,
+                )
+            logger.warning("Rejected internal location SQL template: %s", sql_or_reason)
 
         t0 = time.time()
         template = maybe_build_template_sql(question, history_summary=history_summary, last_sql=last_sql)
