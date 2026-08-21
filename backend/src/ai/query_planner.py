@@ -77,15 +77,13 @@ def plan_inventory_query(question: str) -> PlannedQuery | None:
     if not text:
         return None
 
-    # Phase 1 entity resolution MUST happen before generic count handling.
-    # Otherwise "How many scissors do we have?" falls through to COUNT(*)
-    # over the whole inventory instead of SUM(quantity) for Ciseaux.
+    # Entity resolution MUST happen before generic count handling.
     item = resolve_item(question)
     if item:
-        item_sql = _escape_like_literal(item.canonical_name)
+        item_sql = _escape_sql_literal(item.canonical_name)
         location = _extract_location(text)
         location_clause = (
-            f"\n  AND i.location ILIKE '%{_escape_like_literal(location)}%' ESCAPE '\\\\'"
+            f"\n  AND LOWER(i.location) = LOWER('{_escape_sql_literal(location)}')"
             if location else ""
         )
 
@@ -97,7 +95,7 @@ def plan_inventory_query(question: str) -> PlannedQuery | None:
                     sql=f"""SELECT COUNT(*) AS item_records,
        COALESCE(SUM(i.quantity - i.available_quantity), 0) AS borrowed_total_quantity
 FROM items AS i
-WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'
+WHERE LOWER(i.name) = LOWER('{item_sql}')
   AND i.status = 'borrowed'{location_clause}""",
                     description=f"Borrowed quantity for {item.canonical_name}.",
                     intent="count_item_borrowed",
@@ -109,7 +107,7 @@ WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'
                     sql=f"""SELECT COUNT(*) AS item_records,
        COALESCE(SUM(i.available_quantity), 0) AS total_available_quantity
 FROM items AS i
-WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'
+WHERE LOWER(i.name) = LOWER('{item_sql}')
   AND i.available_quantity > 0{location_clause}""",
                     description=f"Available quantity for {item.canonical_name}.",
                     intent="count_item_available",
@@ -119,7 +117,7 @@ WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'
        COALESCE(SUM(i.quantity), 0) AS total_quantity,
        COALESCE(SUM(i.available_quantity), 0) AS total_available_quantity
 FROM items AS i
-WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'{location_clause}""",
+WHERE LOWER(i.name) = LOWER('{item_sql}'){location_clause}""",
                 description=f"Total quantity for {item.canonical_name}.",
                 intent="count_item",
             )
@@ -132,7 +130,7 @@ WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'{location_clause}""",
                 sql=f"""SELECT i.id, i.name, i.item_code, i.brand, i.model, i.status,
        i.quantity, i.available_quantity, i.location
 FROM items AS i
-WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'{location_clause}
+WHERE LOWER(i.name) = LOWER('{item_sql}'){location_clause}
 ORDER BY i.name
 LIMIT 100""",
                 description=f"Location and inventory details for {item.canonical_name}.",
@@ -142,20 +140,19 @@ LIMIT 100""",
         if _contains_any(text, _LIST_WORDS) or "do we have" in text or "does" in text:
             return _item_detail_plan(item_sql, item.canonical_name, location_clause, "find_item")
 
-    # Location-specific aggregate questions must happen before generic global
-    # availability/count handling. "How many items are available in A1?"
-    # must never return the global 2687 units.
+    # Location-specific aggregate questions must happen before generic counts.
     if _contains_any(text, _COUNT_WORDS):
         location = _extract_location(text)
         if location:
-            location_sql = _escape_like_literal(location)
+            location_sql = _escape_sql_literal(location)
+            location_filter = f"LOWER(i.location) = LOWER('{location_sql}')"
             if _contains_any(text, _MAINTENANCE_WORDS):
                 return PlannedQuery(
                     sql=f"""SELECT COUNT(*) AS maintenance_item_records,
        COALESCE(SUM(i.quantity), 0) AS maintenance_total_quantity
 FROM items AS i
 WHERE i.status = 'maintenance'
-  AND i.location ILIKE '%{location_sql}%' ESCAPE '\\\\'""",
+  AND {location_filter}""",
                     description=f"Inventory under maintenance in {location}.",
                     intent="count_maintenance_location",
                 )
@@ -165,7 +162,7 @@ WHERE i.status = 'maintenance'
        COALESCE(SUM(i.quantity - i.available_quantity), 0) AS borrowed_total_quantity
 FROM items AS i
 WHERE i.status = 'borrowed'
-  AND i.location ILIKE '%{location_sql}%' ESCAPE '\\\\'""",
+  AND {location_filter}""",
                     description=f"Borrowed inventory in {location}.",
                     intent="count_borrowed_location",
                 )
@@ -176,7 +173,7 @@ WHERE i.status = 'borrowed'
 FROM items AS i
 WHERE i.status = 'available'
   AND i.available_quantity > 0
-  AND i.location ILIKE '%{location_sql}%' ESCAPE '\\\\'""",
+  AND {location_filter}""",
                     description=f"Available inventory in {location}.",
                     intent="count_available_location",
                 )
@@ -185,7 +182,7 @@ WHERE i.status = 'available'
        COALESCE(SUM(i.quantity), 0) AS total_quantity,
        COALESCE(SUM(i.available_quantity), 0) AS total_available_quantity
 FROM items AS i
-WHERE i.location ILIKE '%{location_sql}%' ESCAPE '\\\\'""",
+WHERE {location_filter}""",
                 description=f"Inventory in {location}.",
                 intent="count_location",
             )
@@ -290,7 +287,7 @@ def _item_status_count_plan(item_sql: str, status: str, label: str, location_cla
         sql=f"""SELECT COUNT(*) AS item_records,
        COALESCE(SUM(i.quantity), 0) AS {label}_total_quantity
 FROM items AS i
-WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'
+WHERE LOWER(i.name) = LOWER('{item_sql}')
   AND i.status = '{status}'{location_clause}""",
         description=f"{label.title()} quantity for the requested item.",
         intent=f"count_item_{label}",
@@ -302,7 +299,7 @@ def _item_detail_plan(item_sql: str, canonical_name: str, location_clause: str, 
         sql=f"""SELECT i.id, i.name, i.item_code, i.brand, i.model, i.status,
        i.quantity, i.available_quantity, i.location
 FROM items AS i
-WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'{location_clause}
+WHERE LOWER(i.name) = LOWER('{item_sql}'){location_clause}
 ORDER BY i.name
 LIMIT 100""",
         description=f"Inventory details for {canonical_name}.",
@@ -344,5 +341,5 @@ def _extract_location(text: str) -> str:
     return candidate
 
 
-def _escape_like_literal(value: str) -> str:
-    return value.replace("\\", "\\\\").replace("'", "''").replace("%", "\\%").replace("_", "\\_")
+def _escape_sql_literal(value: str) -> str:
+    return (value or "").replace("'", "''")
