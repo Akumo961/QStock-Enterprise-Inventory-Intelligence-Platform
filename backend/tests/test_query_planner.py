@@ -31,7 +31,7 @@ def test_how_many_different_items_counts_records():
     assert plan is not None
     assert plan.intent == "count_records"
     assert "COUNT(*)" in plan.sql
-    assert "SUM(i.quantity)" not in plan.sql
+    assert "ILIKE" not in plan.sql
 
 
 def test_french_available_listing_is_a_list_query():
