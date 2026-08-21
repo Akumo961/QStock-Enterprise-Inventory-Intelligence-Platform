@@ -12,22 +12,11 @@ from src.ai.prompts import (
 )
 from src.core.config import settings
 
-_VERBOSE_COLUMNS = frozenset(
-    {
-        "description",
-        "notes",
-        "image_url",
-        "qr_code_data",
-        "qr_code_image",
-        "hashed_password",
-        "purchase_date",
-        "created_at",
-        "updated_at",
-        "is_borrowable",
-        "requires_approval",
-        "max_borrow_days",
-    }
-)
+_VERBOSE_COLUMNS = frozenset({
+    "description", "notes", "image_url", "qr_code_data", "qr_code_image",
+    "hashed_password", "purchase_date", "created_at", "updated_at",
+    "is_borrowable", "requires_approval", "max_borrow_days",
+})
 
 
 def slim_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -46,17 +35,13 @@ def serialize_rows_for_prompt(rows: list[dict[str, Any]], limit: int) -> str:
     """Serialize database rows compactly for answer generation."""
     if not rows:
         return "(no rows)"
-
     compact_rows = slim_rows(rows)
     lines: list[str] = []
     for index, row in enumerate(compact_rows[:limit], start=1):
         pairs = ", ".join(f"{key}={value}" for key, value in row.items())
         lines.append(f"{index}. {pairs}")
-
     if len(rows) > limit:
-        lines.append(
-            f"... and {len(rows) - limit} more row(s), total matched: {len(rows)}."
-        )
+        lines.append(f"... and {len(rows) - limit} more row(s), total matched: {len(rows)}.")
     return "\n".join(lines)
 
 
@@ -66,85 +51,44 @@ class ResponseGenerator:
     def __init__(self, provider: Any):
         self.provider = provider
 
-    def answer_from_rows(
-        self,
-        *,
-        language: str,
-        question: str,
-        sql: str,
-        rows: list[dict[str, Any]],
-        history_messages: list[dict[str, str]],
-    ) -> str:
-        """Generate a natural-language answer grounded in retrieved rows."""
+    def answer_from_rows(self, *, language: str, question: str, sql: str,
+                         rows: list[dict[str, Any]], history_messages: list[dict[str, str]]) -> str:
         row_limit = getattr(settings, "AI_CONTEXT_ROW_LIMIT", 15)
         max_tokens = getattr(settings, "AI_ANSWER_MAX_TOKENS", 180)
         data_block = serialize_rows_for_prompt(rows, row_limit)
-
         messages = (
             [{"role": "system", "content": build_answer_system_prompt(language)}]
             + history_messages
-            + [
-                {
-                    "role": "user",
-                    "content": build_answer_user_prompt(
-                        question=question,
-                        sql=sql,
-                        data_block=data_block,
-                        row_count=len(rows),
-                    ),
-                }
-            ]
+            + [{"role": "user", "content": build_answer_user_prompt(
+                question=question, sql=sql, data_block=data_block, row_count=len(rows)
+            )}]
         )
-
         answer_num_ctx = getattr(settings, "AI_ANSWER_NUM_CTX", 2048)
         return self.provider.complete(
-            messages,
-            max_tokens=max_tokens,
-            temperature=0.25,
-            num_ctx=answer_num_ctx,
+            messages, max_tokens=max_tokens, temperature=0.25, num_ctx=answer_num_ctx
         ).strip()
 
-    def empty_result_answer(
-        self,
-        *,
-        language: str,
-        question: str,
-        sql: str,
-        history_summary: str,
-    ) -> str:
-        """Generate a useful answer when the query returned no rows."""
+    def empty_result_answer(self, *, language: str, question: str, sql: str,
+                            history_summary: str) -> str:
         messages = [
             {"role": "system", "content": build_answer_system_prompt(language)},
-            {
-                "role": "user",
-                "content": build_empty_result_prompt(
-                    language=language,
-                    question=question,
-                    sql=sql,
-                    history_summary=history_summary,
-                ),
-            },
+            {"role": "user", "content": build_empty_result_prompt(
+                language=language, question=question, sql=sql, history_summary=history_summary
+            )},
         ]
         answer_num_ctx = getattr(settings, "AI_ANSWER_NUM_CTX", 2048)
         return self.provider.complete(
-            messages,
-            max_tokens=120,
-            temperature=0.25,
-            num_ctx=answer_num_ctx,
+            messages, max_tokens=120, temperature=0.25, num_ctx=answer_num_ctx
         ).strip()
 
     def general_answer(self, *, language: str, question: str) -> str:
-        """Answer a general non-database question."""
         messages = [
             {"role": "system", "content": build_general_system_prompt(language)},
             {"role": "user", "content": build_general_user_prompt(question)},
         ]
         answer_num_ctx = getattr(settings, "AI_ANSWER_NUM_CTX", 2048)
         return self.provider.complete(
-            messages,
-            max_tokens=180,
-            temperature=0.35,
-            num_ctx=answer_num_ctx,
+            messages, max_tokens=180, temperature=0.35, num_ctx=answer_num_ctx
         ).strip()
 
 
@@ -152,55 +96,33 @@ def fallback_format_rows(rows: list[dict[str, Any]], language: str) -> str:
     """Safe deterministic fallback with human wording instead of debug text."""
     if not rows:
         if language == "fr":
-            return (
-                "Je n’ai trouvé aucun résultat correspondant à cette recherche. "
-                "Vérifiez le nom de l’article, l’emplacement ou le filtre demandé."
-            )
-        return (
-            "I couldn’t find any results matching that request. "
-            "Check the item name, location, or filter and try again."
-        )
+            return "Je n’ai trouvé aucun résultat correspondant. Vérifiez l’article, l’emplacement ou le filtre demandé."
+        return "I couldn’t find any results matching that request. Check the item, location, or filter and try again."
 
-    lines = []
+    lines: list[str] = []
     for row in rows[:20]:
         label = row.get("name") or row.get("full_name") or row.get("item_name")
         if label:
             details = [
                 f"{key.replace('_', ' ').title()}: {value}"
                 for key, value in row.items()
-                if key not in {"id", "user_id", "name", "full_name", "item_name"}
-                and value is not None
+                if key not in {"id", "user_id", "name", "full_name", "item_name"} and value is not None
             ]
-            lines.append(
-                f"- **{label}**" + (f" — {', '.join(details)}" if details else "")
-            )
+            lines.append(f"- **{label}**" + (f" — {', '.join(details)}" if details else ""))
         else:
-            lines.append(
-                "- " + ", ".join(f"{key}: {value}" for key, value in row.items())
-            )
-
+            lines.append("- " + ", ".join(f"{key}: {value}" for key, value in row.items()))
     if len(rows) > 20:
         lines.append(
             f"- … {len(rows) - 20} more result(s)."
             if language != "fr"
             else f"- … {len(rows) - 20} résultat(s) supplémentaire(s)."
         )
-
     return ("Voici les résultats :" if language == "fr" else "Here are the results:") + "\n\n" + "\n".join(lines)
 
 
-def deterministic_list_answer(
-    rows: list[dict[str, Any]],
-    language: str,
-    max_items: int = 20,
-    question: str = "",
-) -> str | None:
-    """Format simple item/user lists without an LLM call.
-
-    The wording adapts to the user's actual request. In particular, location
-    and availability questions no longer produce the mechanical
-    "Found 1 result(s)" style response.
-    """
+def deterministic_list_answer(rows: list[dict[str, Any]], language: str,
+                              max_items: int = 20, question: str = "") -> str | None:
+    """Format simple item/user lists with context-aware natural wording."""
     if not rows:
         return None
 
@@ -244,25 +166,25 @@ def deterministic_list_answer(
 
     text = (question or "").lower()
     location = _extract_location_from_question(text)
-    availability = any(
-        term in text
-        for term in (
-            "available",
-            "availability",
-            "in stock",
-            "disponible",
-            "disponibles",
-            "disponibilité",
-            "disponibilite",
-            "en stock",
+    if location is None:
+        row_locations = {str(row.get("location")) for row in rows if row.get("location")}
+        if len(row_locations) == 1:
+            location = next(iter(row_locations))
+
+    availability = any(term in text for term in (
+        "available", "availability", "in stock", "disponible", "disponibles",
+        "disponibilité", "disponibilite", "en stock",
+    ))
+    if not availability:
+        statuses = {str(row.get("status", "")).lower() for row in rows}
+        availability = statuses == {"available"} and all(
+            row.get("available_quantity", 0) not in (None, 0) for row in rows
         )
-    )
-    location_listing = location is not None
 
     if language == "fr":
         if availability and location:
             header = f"J’ai trouvé {len(rows)} article(s) disponible(s) à {location} :\n\n"
-        elif location_listing:
+        elif location:
             header = f"J’ai trouvé {len(rows)} article(s) à {location} :\n\n"
         elif availability:
             header = f"Voici {len(rows)} article(s) actuellement disponible(s) :\n\n"
@@ -273,7 +195,7 @@ def deterministic_list_answer(
     else:
         if availability and location:
             header = f"I found {len(rows)} available item(s) in {location}:\n\n"
-        elif location_listing:
+        elif location:
             header = f"I found {len(rows)} item(s) in {location}:\n\n"
         elif availability:
             header = f"Here are the {len(rows)} item(s) currently available:\n\n"
@@ -283,110 +205,64 @@ def deterministic_list_answer(
             header = f"Here are the {len(rows)} result(s):\n\n"
 
     if len(rows) > max_items:
-        if language == "fr":
-            header += f"Affichage des {max_items} premiers résultats.\n\n"
-        else:
-            header += f"Showing the first {max_items} results.\n\n"
-
+        header += (
+            f"Affichage des {max_items} premiers résultats.\n\n"
+            if language == "fr"
+            else f"Showing the first {max_items} results.\n\n"
+        )
     return header + "\n".join(lines)
 
 
-def deterministic_data_answer(
-    question: str,
-    rows: list[dict[str, Any]],
-    language: str,
-) -> str | None:
+def deterministic_data_answer(question: str, rows: list[dict[str, Any]], language: str) -> str | None:
     """Answer known aggregate results directly from database values."""
     if not rows:
         return None
-
     first = rows[0]
     keys = set(first.keys())
 
     if {"total_quantity", "total_available_quantity", "item_records"}.issubset(keys):
         if language == "fr":
-            return (
-                f"Vous avez actuellement {first['total_quantity']} unités en stock "
-                f"sur {first['item_records']} référence(s). "
-                f"Dont {first['total_available_quantity']} unité(s) sont actuellement disponibles."
-            )
-        return (
-            f"You currently have {first['total_quantity']} units in stock "
-            f"across {first['item_records']} inventory item(s). "
-            f"Of those, {first['total_available_quantity']} unit(s) are currently available."
-        )
+            return f"Vous avez actuellement {first['total_quantity']} unités en stock sur {first['item_records']} référence(s). Dont {first['total_available_quantity']} unité(s) sont actuellement disponibles."
+        return f"You currently have {first['total_quantity']} units in stock across {first['item_records']} inventory item(s). Of those, {first['total_available_quantity']} unit(s) are currently available."
 
     if {"total_available_quantity", "item_records"}.issubset(keys):
         if language == "fr":
-            return (
-                f"Vous avez actuellement {first['total_available_quantity']} unité(s) disponibles "
-                f"sur {first['item_records']} référence(s) d’inventaire."
-            )
-        return (
-            f"You currently have {first['total_available_quantity']} available unit(s) "
-            f"across {first['item_records']} inventory item(s)."
-        )
+            return f"Vous avez actuellement {first['total_available_quantity']} unité(s) disponibles sur {first['item_records']} référence(s) d’inventaire."
+        return f"You currently have {first['total_available_quantity']} available unit(s) across {first['item_records']} inventory item(s)."
 
     if "item_records" in keys and len(keys) == 1:
         if language == "fr":
             return f"QStock contient actuellement {first['item_records']} référence(s) d’inventaire."
         return f"QStock currently has {first['item_records']} inventory item(s)."
 
-    if {
-        "item_records",
-        "total_quantity",
-        "available_quantity",
-        "unavailable_quantity",
-        "available_records",
-        "borrowed_records",
-        "maintenance_records",
-        "retired_records",
-    }.issubset(keys):
+    dashboard_keys = {
+        "item_records", "total_quantity", "available_quantity", "unavailable_quantity",
+        "available_records", "borrowed_records", "maintenance_records", "retired_records",
+    }
+    if dashboard_keys.issubset(keys):
         if language == "fr":
             return (
-                f"L’inventaire contient {first['item_records']} fiche(s), "
-                f"{first['total_quantity']} unité(s) au total et "
-                f"{first['available_quantity']} unité(s) disponibles. "
-                f"Unités indisponibles : {first['unavailable_quantity']}. "
-                f"Statuts : {first['available_records']} disponibles, "
-                f"{first['borrowed_records']} empruntées, "
-                f"{first['maintenance_records']} en maintenance et "
-                f"{first['retired_records']} retirées."
+                f"L’inventaire contient {first['item_records']} fiche(s), {first['total_quantity']} unité(s) au total et "
+                f"{first['available_quantity']} unité(s) disponibles. Unités indisponibles : {first['unavailable_quantity']}. "
+                f"Statuts : {first['available_records']} disponibles, {first['borrowed_records']} empruntées, "
+                f"{first['maintenance_records']} en maintenance et {first['retired_records']} retirées."
             )
         return (
-            f"Inventory has {first['item_records']} item record(s), "
-            f"{first['total_quantity']} total unit(s), and "
-            f"{first['available_quantity']} available unit(s). "
-            f"Unavailable units: {first['unavailable_quantity']}. "
-            f"Statuses: {first['available_records']} available, "
-            f"{first['borrowed_records']} borrowed, "
-            f"{first['maintenance_records']} in maintenance, and "
-            f"{first['retired_records']} retired."
+            f"Inventory has {first['item_records']} item record(s), {first['total_quantity']} total unit(s), and "
+            f"{first['available_quantity']} available unit(s). Unavailable units: {first['unavailable_quantity']}. "
+            f"Statuses: {first['available_records']} available, {first['borrowed_records']} borrowed, "
+            f"{first['maintenance_records']} in maintenance, and {first['retired_records']} retired."
         )
 
     if {"current_available_inventory", "total_inventory", "unavailable_inventory"}.issubset(keys):
         if language == "fr":
-            return (
-                f"Inventaire actuellement disponible : {first['current_available_inventory']}. "
-                f"Inventaire total : {first['total_inventory']}. "
-                f"Indisponible : {first['unavailable_inventory']}."
-            )
-        return (
-            f"Current available inventory is {first['current_available_inventory']}. "
-            f"Total inventory is {first['total_inventory']}. "
-            f"Unavailable inventory is {first['unavailable_inventory']}."
-        )
+            return f"Inventaire actuellement disponible : {first['current_available_inventory']}. Inventaire total : {first['total_inventory']}. Indisponible : {first['unavailable_inventory']}."
+        return f"Current available inventory is {first['current_available_inventory']}. Total inventory is {first['total_inventory']}. Unavailable inventory is {first['unavailable_inventory']}."
 
     if {"maintenance_item_records", "maintenance_total_quantity"}.issubset(keys):
         if language == "fr":
-            return (
-                f"{first['maintenance_item_records']} fiche(s) sont en maintenance, "
-                f"pour {first['maintenance_total_quantity']} unité(s) au total."
-            )
-        return (
-            f"{first['maintenance_item_records']} item record(s) are under maintenance, "
-            f"totaling {first['maintenance_total_quantity']} unit(s)."
-        )
+            return f"{first['maintenance_item_records']} fiche(s) sont en maintenance, pour {first['maintenance_total_quantity']} unité(s) au total."
+        return f"{first['maintenance_item_records']} item record(s) are under maintenance, totaling {first['maintenance_total_quantity']} unit(s)."
 
     return None
 
@@ -394,61 +270,26 @@ def deterministic_data_answer(
 def deterministic_general_answer(question: str, language: str) -> str:
     """Provide deterministic answers for a small set of general QStock topics."""
     text = question.lower()
-
     if language == "fr":
         if "low stock" in text or "faible" in text:
-            return (
-                "Dans QStock, un stock faible signifie généralement que la quantité "
-                "disponible est sous un seuil. Si aucun seuil n’est précisé, utilisez "
-                "le seuil configuré par QStock plutôt que de l’inventer."
-            )
+            return "Dans QStock, un stock faible signifie généralement que la quantité disponible est sous un seuil. Si aucun seuil n’est précisé, utilisez le seuil configuré par QStock plutôt que de l’inventer."
         if "status" in text or "statut" in text:
-            return (
-                "Les statuts principaux de l’inventaire sont available, borrowed, "
-                "maintenance et retired."
-            )
-        return (
-            "Je peux répondre aux questions sur les articles, les quantités, "
-            "les disponibilités, les emprunts, les retards, les utilisateurs, "
-            "les demandes et les statistiques d’inventaire."
-        )
-
+            return "Les statuts principaux de l’inventaire sont available, borrowed, maintenance et retired."
+        return "Je peux répondre aux questions sur les articles, les quantités, les disponibilités, les emprunts, les retards, les utilisateurs, les demandes et les statistiques d’inventaire."
     if "low stock" in text:
-        return (
-            "I can identify low-stock inventory using QStock’s configured threshold. "
-            "I won’t invent a threshold if the application has not configured one."
-        )
+        return "I can identify low-stock inventory using QStock’s configured threshold. I won’t invent a threshold if the application has not configured one."
     if "status" in text:
-        return (
-            "QStock inventory statuses include available, borrowed, maintenance, "
-            "and retired."
-        )
-    return (
-        "I can answer live inventory questions about items, quantities, availability, "
-        "borrowed and overdue transactions, users, requests, categories, and inventory statistics."
-    )
+        return "QStock inventory statuses include available, borrowed, maintenance, and retired."
+    return "I can answer live inventory questions about items, quantities, availability, borrowed and overdue transactions, users, requests, categories, and inventory statistics."
 
 
 def can_answer_general_deterministically(question: str) -> bool:
-    """Return whether a general question has a safe deterministic answer."""
     text = question.lower()
-    return any(
-        phrase in text
-        for phrase in (
-            "what can you do",
-            "what can you help",
-            "help",
-            "low stock",
-            "inventory status",
-            "status mean",
-            "explain inventory status",
-            "que peux-tu faire",
-            "que pouvez-vous faire",
-            "aide",
-            "stock faible",
-            "statut inventaire",
-        )
-    )
+    return any(phrase in text for phrase in (
+        "what can you do", "what can you help", "help", "low stock", "inventory status",
+        "status mean", "explain inventory status", "que peux-tu faire", "que pouvez-vous faire",
+        "aide", "stock faible", "statut inventaire",
+    ))
 
 
 def _extract_location_from_question(text: str) -> str | None:
@@ -463,16 +304,8 @@ def _extract_location_from_question(text: str) -> str | None:
         return None
     candidate = match.group(1).strip()
     if candidate.lower() in {
-        "stock",
-        "the",
-        "this",
-        "that",
-        "inventory",
-        "maintenance",
-        "available",
-        "borrowed",
-        "retired",
-        "overdue",
+        "stock", "the", "this", "that", "inventory", "maintenance",
+        "available", "borrowed", "retired", "overdue",
     }:
         return None
     return candidate
