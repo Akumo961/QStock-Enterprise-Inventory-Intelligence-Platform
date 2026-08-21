@@ -58,6 +58,17 @@ _LIST_WORDS = (
     "montre", "montrer", "trouve", "trouver", "recherche", "rechercher",
 )
 
+# A live existence question should never fall through to the LLM merely
+# because its grammatical form differs from "Do we have X?".  These phrases
+# are equivalent inventory lookups: Do you have X? / Is there X? / Are there
+# any X? / Avons-nous X? / Y a-t-il X?
+_EXISTENCE_PHRASES = (
+    "do we have", "do you have", "does qstock have", "is there", "are there",
+    "avons-nous", "avons nous", "avez-vous", "avez vous", "est-ce qu'on a",
+    "est ce qu'on a", "est-ce que nous avons", "est ce que nous avons",
+    "y a-t-il", "y a t il", "y a il",
+)
+
 _INVENTORY_LIST_PHRASES = (
     "what items do we have", "what items do we currently have",
     "what inventory do we have", "what do we have in inventory",
@@ -133,7 +144,11 @@ GROUP BY i.name""",
         if _contains_location_question(text):
             return _item_detail_plan(item_sql, item.canonical_name, location_clause, "locate_item")
 
-        if _contains_any(text, _LIST_WORDS) or "do we have" in text or "does" in text:
+        # All common existence formulations resolve to the same deterministic
+        # item lookup. This is deliberately broader than the old literal
+        # "do we have" check, which missed "do you have", "is there", and
+        # "are there any" and unnecessarily fell back to the LLM.
+        if _contains_any(text, _EXISTENCE_PHRASES) or _contains_any(text, _LIST_WORDS):
             return _item_detail_plan(item_sql, item.canonical_name, location_clause, "find_item")
 
     location = _extract_location(text)
