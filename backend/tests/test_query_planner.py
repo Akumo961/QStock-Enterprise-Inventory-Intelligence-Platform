@@ -76,3 +76,42 @@ def test_show_available_items_is_not_ambiguous():
     plan = plan_inventory_query("Show me the available items")
     assert plan is not None
     assert plan.intent == "list_available"
+
+
+def test_french_item_location_question_resolves_item():
+    plan = plan_inventory_query("Où sont les Ciseaux ?")
+    assert plan is not None
+    assert plan.intent == "locate_item"
+    assert "LOWER(i.name) = LOWER('Ciseaux')" in plan.sql
+    assert "LOWER(i.location)" not in plan.sql
+
+
+def test_english_item_location_question_resolves_item():
+    plan = plan_inventory_query("Where is the projector?")
+    assert plan is not None
+    assert plan.intent == "locate_item"
+    assert "LOWER(i.name) = LOWER('Projecteur')" in plan.sql
+
+
+def test_location_list_is_scoped():
+    plan = plan_inventory_query("What items are in A1?")
+    assert plan is not None
+    assert plan.intent == "list_location"
+    assert "LOWER(i.location) = LOWER('a1')" in plan.sql
+    assert "ORDER BY i.name" in plan.sql
+    assert "LIMIT 100" in plan.sql
+
+
+def test_french_location_list_is_scoped():
+    plan = plan_inventory_query("Quels articles sont à A5 ?")
+    assert plan is not None
+    assert plan.intent == "list_location"
+    assert "LOWER(i.location) = LOWER('a5')" in plan.sql
+
+
+def test_location_count_is_not_global():
+    plan = plan_inventory_query("How many items are available in A1?")
+    assert plan is not None
+    assert plan.intent == "count_available_location"
+    assert "LOWER(i.location) = LOWER('a1')" in plan.sql
+    assert "FROM items AS i" in plan.sql
