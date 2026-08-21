@@ -2,10 +2,14 @@
 
 Runs before LLM SQL generation. High-confidence English/French questions are
 converted into safe PostgreSQL SELECTs so question words can never become
-item-name filters.
+item-name filters. Item-specific questions are resolved before generic counts
+so English names can target French canonical inventory names.
 """
 
 from dataclasses import dataclass
+import re
+
+from src.ai.entity_resolver import resolve_item
 
 
 @dataclass(frozen=True)
@@ -27,7 +31,7 @@ _UNIT_WORDS = (
 )
 
 _AVAILABLE_WORDS = (
-    "available", "availability", "disponible", "disponibles",
+    "available", "availability", "available right now", "disponible", "disponibles",
     "disponibilité", "disponibilite",
 )
 
@@ -44,7 +48,7 @@ _RETIRED_WORDS = (
 )
 
 _DISTINCT_WORDS = (
-    "different", "distinct", "types of", "references", "références", "references",
+    "different", "distinct", "types of", "references", "références",
     "different items", "different products", "types d'articles", "types d'items",
 )
 
@@ -55,51 +59,137 @@ _LIST_WORDS = (
 )
 
 _INVENTORY_LIST_PHRASES = (
-    "what items do we have",
-    "what items do we currently have",
-    "what inventory do we have",
-    "what do we have in inventory",
-    "what is in our inventory",
-    "list our inventory",
-    "show our inventory",
-    "show me our inventory",
-    "list all items",
-    "show all items",
-    "what items are in stock",
-    "what is currently in stock",
-    "quels articles avons-nous",
-    "quelles articles avons-nous",
-    "qu'est-ce qu'on a en stock",
-    "qu'est-ce que nous avons en stock",
-    "quels articles sont en stock",
-    "montre-moi notre inventaire",
+    "what items do we have", "what items do we currently have",
+    "what inventory do we have", "what do we have in inventory",
+    "what is in our inventory", "list our inventory", "show our inventory",
+    "show me our inventory", "list all items", "show all items",
+    "what items are in stock", "what is currently in stock",
+    "quels articles avons-nous", "quelles articles avons-nous",
+    "qu'est-ce qu'on a en stock", "qu'est-ce que nous avons en stock",
+    "quels articles sont en stock", "montre-moi notre inventaire",
     "liste notre inventaire",
 )
 
-_STATS_SQL = """SELECT COUNT(*) AS item_records,
-       COALESCE(SUM(i.quantity), 0) AS total_quantity,
-       COALESCE(SUM(i.available_quantity), 0) AS available_quantity,
-       COALESCE(SUM(i.quantity - i.available_quantity), 0) AS unavailable_quantity,
-       COUNT(*) FILTER (WHERE i.status = 'available') AS available_records,
-       COUNT(*) FILTER (WHERE i.status = 'borrowed') AS borrowed_records,
-       COUNT(*) FILTER (WHERE i.status = 'maintenance') AS maintenance_records,
-       COUNT(*) FILTER (WHERE i.status = 'retired') AS retired_records
-FROM items AS i"""
-
 
 def plan_inventory_query(question: str) -> PlannedQuery | None:
-    """Return a deterministic query for high-confidence inventory questions."""
+    """Return a deterministic query for a high-confidence inventory question."""
     text = " ".join((question or "").strip().lower().split())
     if not text:
         return None
 
-    # ---------------------------------------------------------------
-    # 1. Status-specific counts MUST happen before generic "available"
-    #    and generic count handling. This prevents:
-    #      "How many items are in maintenance?"
-    #    from becoming a global inventory statistics query.
-    # ---------------------------------------------------------------
+    # Phase 1 entity resolution MUST happen before generic count handling.
+    # Otherwise "How many scissors do we have?" falls through to COUNT(*)
+    # over the whole inventory instead of SUM(quantity) for Ciseaux.
+    item = resolve_item(question)
+    if item:
+        item_sql = _escape_like_literal(item.canonical_name)
+        location = _extract_location(text)
+        location_clause = (
+            f"\n  AND i.location ILIKE '%{_escape_like_literal(location)}%' ESCAPE '\\\\'"
+            if location else ""
+        )
+
+        if _contains_any(text, _COUNT_WORDS):
+            if _contains_any(text, _MAINTENANCE_WORDS):
+                return _item_status_count_plan(item_sql, "maintenance", "maintenance", location_clause)
+            if _contains_any(text, _BORROWED_WORDS):
+                return PlannedQuery(
+                    sql=f"""SELECT COUNT(*) AS item_records,
+       COALESCE(SUM(i.quantity - i.available_quantity), 0) AS borrowed_total_quantity
+FROM items AS i
+WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'
+  AND i.status = 'borrowed'{location_clause}""",
+                    description=f"Borrowed quantity for {item.canonical_name}.",
+                    intent="count_item_borrowed",
+                )
+            if _contains_any(text, _RETIRED_WORDS):
+                return _item_status_count_plan(item_sql, "retired", "retired", location_clause)
+            if _contains_any(text, _AVAILABLE_WORDS):
+                return PlannedQuery(
+                    sql=f"""SELECT COUNT(*) AS item_records,
+       COALESCE(SUM(i.available_quantity), 0) AS total_available_quantity
+FROM items AS i
+WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'
+  AND i.available_quantity > 0{location_clause}""",
+                    description=f"Available quantity for {item.canonical_name}.",
+                    intent="count_item_available",
+                )
+            return PlannedQuery(
+                sql=f"""SELECT COUNT(*) AS item_records,
+       COALESCE(SUM(i.quantity), 0) AS total_quantity,
+       COALESCE(SUM(i.available_quantity), 0) AS total_available_quantity
+FROM items AS i
+WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'{location_clause}""",
+                description=f"Total quantity for {item.canonical_name}.",
+                intent="count_item",
+            )
+
+        if _contains_any(text, _AVAILABLE_WORDS):
+            return _item_detail_plan(item_sql, item.canonical_name, location_clause, "item_availability")
+
+        if _contains_location_question(text):
+            return PlannedQuery(
+                sql=f"""SELECT i.id, i.name, i.item_code, i.brand, i.model, i.status,
+       i.quantity, i.available_quantity, i.location
+FROM items AS i
+WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'{location_clause}
+ORDER BY i.name
+LIMIT 100""",
+                description=f"Location and inventory details for {item.canonical_name}.",
+                intent="locate_item",
+            )
+
+        if _contains_any(text, _LIST_WORDS) or "do we have" in text or "does" in text:
+            return _item_detail_plan(item_sql, item.canonical_name, location_clause, "find_item")
+
+    # Location-specific aggregate questions must happen before generic global
+    # availability/count handling. "How many items are available in A1?"
+    # must never return the global 2687 units.
     if _contains_any(text, _COUNT_WORDS):
+        location = _extract_location(text)
+        if location:
+            location_sql = _escape_like_literal(location)
+            if _contains_any(text, _MAINTENANCE_WORDS):
+                return PlannedQuery(
+                    sql=f"""SELECT COUNT(*) AS maintenance_item_records,
+       COALESCE(SUM(i.quantity), 0) AS maintenance_total_quantity
+FROM items AS i
+WHERE i.status = 'maintenance'
+  AND i.location ILIKE '%{location_sql}%' ESCAPE '\\\\'""",
+                    description=f"Inventory under maintenance in {location}.",
+                    intent="count_maintenance_location",
+                )
+            if _contains_any(text, _BORROWED_WORDS):
+                return PlannedQuery(
+                    sql=f"""SELECT COUNT(*) AS borrowed_item_records,
+       COALESCE(SUM(i.quantity - i.available_quantity), 0) AS borrowed_total_quantity
+FROM items AS i
+WHERE i.status = 'borrowed'
+  AND i.location ILIKE '%{location_sql}%' ESCAPE '\\\\'""",
+                    description=f"Borrowed inventory in {location}.",
+                    intent="count_borrowed_location",
+                )
+            if _contains_any(text, _AVAILABLE_WORDS):
+                return PlannedQuery(
+                    sql=f"""SELECT COUNT(*) AS item_records,
+       COALESCE(SUM(i.available_quantity), 0) AS total_available_quantity
+FROM items AS i
+WHERE i.status = 'available'
+  AND i.available_quantity > 0
+  AND i.location ILIKE '%{location_sql}%' ESCAPE '\\\\'""",
+                    description=f"Available inventory in {location}.",
+                    intent="count_available_location",
+                )
+            return PlannedQuery(
+                sql=f"""SELECT COUNT(*) AS item_records,
+       COALESCE(SUM(i.quantity), 0) AS total_quantity,
+       COALESCE(SUM(i.available_quantity), 0) AS total_available_quantity
+FROM items AS i
+WHERE i.location ILIKE '%{location_sql}%' ESCAPE '\\\\'""",
+                description=f"Inventory in {location}.",
+                intent="count_location",
+            )
+
         if _contains_any(text, _MAINTENANCE_WORDS):
             return PlannedQuery(
                 sql="""SELECT COUNT(*) AS maintenance_item_records,
@@ -138,8 +228,6 @@ FROM items AS i""",
                 intent="count_records",
             )
 
-        # "How many items are available?" means the currently available
-        # inventory, not the entire dashboard. Return only the relevant facts.
         if _contains_any(text, _AVAILABLE_WORDS):
             return PlannedQuery(
                 sql="""SELECT COUNT(*) FILTER (WHERE i.status = 'available') AS item_records,
@@ -149,7 +237,6 @@ FROM items AS i""",
                 intent="count_available",
             )
 
-        # "How many items do we have in stock?" is a total inventory question.
         if _contains_any(text, _UNIT_WORDS):
             return PlannedQuery(
                 sql="""SELECT COUNT(*) AS item_records,
@@ -167,17 +254,10 @@ FROM items AS i""",
             intent="count_records",
         )
 
-    # ---------------------------------------------------------------
-    # 2. Explicit total inventory questions.
-    # ---------------------------------------------------------------
-    if _contains_any(
-        text,
-        (
-            "total stock", "total inventory", "total quantity", "stock total",
-            "inventaire total", "quantité totale", "quantite totale",
-            "stock total",
-        ),
-    ):
+    if _contains_any(text, (
+        "total stock", "total inventory", "total quantity", "stock total",
+        "inventaire total", "quantité totale", "quantite totale",
+    )):
         return PlannedQuery(
             sql="""SELECT COUNT(*) AS item_records,
        COALESCE(SUM(i.quantity), 0) AS total_quantity,
@@ -187,15 +267,9 @@ FROM items AS i""",
             intent="sum_quantity",
         )
 
-    # ---------------------------------------------------------------
-    # 3. Generic inventory list questions.
-    # ---------------------------------------------------------------
     if any(phrase in text for phrase in _INVENTORY_LIST_PHRASES):
         return _list_items_plan()
 
-    # ---------------------------------------------------------------
-    # 4. Available-item list questions.
-    # ---------------------------------------------------------------
     if _contains_any(text, _AVAILABLE_WORDS) and _contains_any(text, _LIST_WORDS):
         return PlannedQuery(
             sql="""SELECT i.id, i.name, i.item_code, i.brand, i.model, i.status,
@@ -211,8 +285,32 @@ LIMIT 100""",
     return None
 
 
+def _item_status_count_plan(item_sql: str, status: str, label: str, location_clause: str) -> PlannedQuery:
+    return PlannedQuery(
+        sql=f"""SELECT COUNT(*) AS item_records,
+       COALESCE(SUM(i.quantity), 0) AS {label}_total_quantity
+FROM items AS i
+WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'
+  AND i.status = '{status}'{location_clause}""",
+        description=f"{label.title()} quantity for the requested item.",
+        intent=f"count_item_{label}",
+    )
+
+
+def _item_detail_plan(item_sql: str, canonical_name: str, location_clause: str, intent: str) -> PlannedQuery:
+    return PlannedQuery(
+        sql=f"""SELECT i.id, i.name, i.item_code, i.brand, i.model, i.status,
+       i.quantity, i.available_quantity, i.location
+FROM items AS i
+WHERE i.name ILIKE '%{item_sql}%' ESCAPE '\\\\'{location_clause}
+ORDER BY i.name
+LIMIT 100""",
+        description=f"Inventory details for {canonical_name}.",
+        intent=intent,
+    )
+
+
 def _list_items_plan() -> PlannedQuery:
-    """Return the canonical read-only inventory listing query."""
     return PlannedQuery(
         sql="""SELECT i.id, i.name, i.item_code, i.brand, i.model, i.status,
        i.quantity, i.available_quantity, i.location
@@ -226,3 +324,25 @@ LIMIT 100""",
 
 def _contains_any(text: str, terms: tuple[str, ...]) -> bool:
     return any(term in text for term in terms)
+
+
+def _contains_location_question(text: str) -> bool:
+    return any(term in text for term in ("where", "où", "ou est", "ou sont", "location", "emplacement"))
+
+
+def _extract_location(text: str) -> str:
+    match = re.search(
+        r"\b(?:in|at|dans|à|a)\s+(?:location|building|room|emplacement|bâtiment|batiment|salle)?\s*[:\-]?\s*([A-Za-z0-9]+)\b",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return ""
+    candidate = match.group(1).strip()
+    if candidate.lower() in {"stock", "the", "a", "an", "this", "that", "inventory"}:
+        return ""
+    return candidate
+
+
+def _escape_like_literal(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("'", "''").replace("%", "\\%").replace("_", "\\_")
