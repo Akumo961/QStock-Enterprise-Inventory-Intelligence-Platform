@@ -54,11 +54,12 @@ _ITEM_ALIASES: dict[str, tuple[str, ...]] = {
 }
 
 _GENERIC_ITEM_WORDS = {
-    "all", "our", "my", "the", "items", "item", "products", "product",
-    "articles", "article", "inventory", "stock", "units", "unit", "quantity",
-    "quantities", "quantite", "quantites", "available", "currently", "right",
-    "now", "things", "ones", "everything", "tout", "tous", "toutes", "nos",
-    "articles", "inventaire", "stock", "unites", "unité", "unités",
+    "all", "our", "my", "the", "they", "them", "their", "it", "its", "this",
+    "that", "these", "those", "ones", "we", "items", "item", "products",
+    "product", "articles", "article", "inventory", "stock", "units", "unit",
+    "quantity", "quantities", "quantite", "quantites", "available", "currently",
+    "right", "now", "things", "everything", "located", "tout", "tous", "toutes",
+    "nos", "inventaire", "unites", "unité", "unités",
 }
 
 
