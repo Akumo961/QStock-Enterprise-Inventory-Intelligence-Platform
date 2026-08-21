@@ -53,6 +53,14 @@ _ITEM_ALIASES: dict[str, tuple[str, ...]] = {
     ),
 }
 
+_GENERIC_ITEM_WORDS = {
+    "all", "our", "my", "the", "items", "item", "products", "product",
+    "articles", "article", "inventory", "stock", "units", "unit", "quantity",
+    "quantities", "quantite", "quantites", "available", "currently", "right",
+    "now", "things", "ones", "everything", "tout", "tous", "toutes", "nos",
+    "articles", "inventaire", "stock", "unites", "unité", "unités",
+}
+
 
 def normalize_text(value: str) -> str:
     """Normalize accents, punctuation, whitespace and case for matching."""
@@ -121,14 +129,7 @@ def _extract_explicit_item_phrase(text: str) -> str:
 
 
 def _clean_candidate(candidate: str) -> str:
-    stop = {
-        "we", "do", "have", "items", "item", "articles", "article",
-        "inventory", "stock", "available", "currently", "right now",
-        "today", "maintenant", "disponible", "disponibles",
-    }
     words = candidate.split()
-    while words and words[0] in stop:
-        words.pop(0)
-    while words and words[-1] in stop:
-        words.pop()
+    if not words or any(word in _GENERIC_ITEM_WORDS for word in words):
+        return ""
     return " ".join(words).strip()
