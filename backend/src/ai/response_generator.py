@@ -11,10 +11,6 @@ from src.ai.prompts import (
 )
 from src.core.config import settings
 
-# Columns that are verbose and rarely needed in a user-facing answer. Strip
-# them from rows before serializing into the answer prompt so the context
-# stays small and inference stays fast. The values are still returned in
-# ChatResponse.rows for the frontend to display if it wants them.
 _VERBOSE_COLUMNS = frozenset({
     "description", "notes", "image_url", "qr_code_data", "qr_code_image",
     "hashed_password", "purchase_date", "created_at", "updated_at",
@@ -26,14 +22,9 @@ def slim_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Return rows with verbose columns stripped for prompt serialization."""
     if not rows:
         return rows
-    # Only strip if the row has more than 6 columns — for narrow aggregate
-    # results (stats, counts) we keep everything since they're already compact.
     if len(rows[0]) <= 6:
         return rows
-    return [
-        {k: v for k, v in row.items() if k not in _VERBOSE_COLUMNS}
-        for row in rows
-    ]
+    return [{k: v for k, v in row.items() if k not in _VERBOSE_COLUMNS} for row in rows]
 
 
 def serialize_rows_for_prompt(rows: list[dict[str, Any]], limit: int) -> str:
@@ -73,17 +64,15 @@ class ResponseGenerator:
         messages = (
             [{"role": "system", "content": build_answer_system_prompt(language)}]
             + history_messages
-            + [
-                {
-                    "role": "user",
-                    "content": build_answer_user_prompt(
-                        question=question,
-                        sql=sql,
-                        data_block=data_block,
-                        row_count=len(rows),
-                    ),
-                }
-            ]
+            + [{
+                "role": "user",
+                "content": build_answer_user_prompt(
+                    question=question,
+                    sql=sql,
+                    data_block=data_block,
+                    row_count=len(rows),
+                ),
+            }]
         )
 
         answer_num_ctx = getattr(settings, "AI_ANSWER_NUM_CTX", 2048)
@@ -104,15 +93,12 @@ class ResponseGenerator:
     ) -> str:
         messages = [
             {"role": "system", "content": build_answer_system_prompt(language)},
-            {
-                "role": "user",
-                "content": build_empty_result_prompt(
-                    language=language,
-                    question=question,
-                    sql=sql,
-                    history_summary=history_summary,
-                ),
-            },
+            {"role": "user", "content": build_empty_result_prompt(
+                language=language,
+                question=question,
+                sql=sql,
+                history_summary=history_summary,
+            )},
         ]
         answer_num_ctx = getattr(settings, "AI_ANSWER_NUM_CTX", 4096)
         return self.provider.complete(messages, max_tokens=120, temperature=0.25, num_ctx=answer_num_ctx).strip()
@@ -132,7 +118,7 @@ def fallback_format_rows(rows: list[dict[str, Any]], language: str) -> str:
             return "Je n'ai trouve aucun enregistrement correspondant. Essayez d'elargir le nom, la categorie ou la periode."
         return "I did not find matching records. Try broadening the item name, category, or date range."
 
-    lines: list[str] = []
+    lines = []
     for row in rows[:20]:
         parts = "; ".join(f"{key}: {value}" for key, value in row.items())
         lines.append(f"- {parts}")
@@ -142,17 +128,7 @@ def fallback_format_rows(rows: list[dict[str, Any]], language: str) -> str:
 
 
 def deterministic_list_answer(rows: list[dict[str, Any]], language: str, max_items: int = 20) -> str | None:
-    """Format a list-of-rows result directly in Python, with no LLM call.
-
-    This is deliberately conservative: it only fires when every row has a
-    recognizable "label" field (name or full_name) — the shape produced by
-    essentially every item/user listing template in query_templates.py. Any
-    row shape it doesn't recognize returns None, so the caller falls through
-    to the LLM exactly as before. No functionality is lost; only the
-    overwhelmingly common case (a simple list of items or people) gets the
-    speedup, since on CPU/GPU-split hardware even a short LLM phrasing call
-    can take 20-30+ seconds — far more than formatting ever costs.
-    """
+    """Format simple item/user lists without an LLM call."""
     if not rows:
         return None
 
@@ -164,10 +140,7 @@ def deterministic_list_answer(rows: list[dict[str, Any]], language: str, max_ite
     else:
         return None
 
-    # Fields worth showing inline, in a sensible reading order. Anything not
-    # in this list (ids, timestamps, internal flags) is simply omitted —
-    # matches what the LLM was already choosing to surface in practice.
-    _DISPLAY_FIELDS = [
+    display_fields = [
         ("item_code", "Item Code" if language != "fr" else "Code"),
         ("email", "Email"),
         ("department", "Department" if language != "fr" else "Departement"),
@@ -191,27 +164,44 @@ def deterministic_list_answer(rows: list[dict[str, Any]], language: str, max_ite
         label = row.get(label_key) or "(unnamed)"
         details = [
             f"{display_name}: {row[key]}"
-            for key, display_name in _DISPLAY_FIELDS
+            for key, display_name in display_fields
             if key in row and row[key] is not None
         ]
         suffix = f" - {', '.join(details)}" if details else ""
         lines.append(f"{index}. **{label}**{suffix}")
 
-    header = ""
     if len(rows) > max_items:
-        if language == "fr":
-            header = f"Voici les {max_items} premiers sur {len(rows)} resultat(s) :\n\n"
-        else:
-            header = f"Here are the first {max_items} of {len(rows)} result(s):\n\n"
-    elif language == "fr":
-        header = f"Voici les {len(rows)} resultat(s) trouve(s) :\n\n"
+        header = (
+            f"Voici les {max_items} premiers sur {len(rows)} resultat(s) :\n\n"
+            if language == "fr"
+            else f"Here are the first {max_items} of {len(rows)} result(s):\n\n"
+        )
     else:
-        header = f"Here are the {len(rows)} result(s) found:\n\n"
-
+        header = (
+            f"Voici les {len(rows)} resultat(s) trouve(s) :\n\n"
+            if language == "fr"
+            else f"Here are the {len(rows)} result(s) found:\n\n"
+        )
     return header + "\n".join(lines)
 
 
+def _number(value: Any) -> str:
+    """Human-friendly numeric formatting without changing the underlying value."""
+    if value is None:
+        return "0"
+    try:
+        return f"{int(value):,}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
 def deterministic_data_answer(question: str, rows: list[dict[str, Any]], language: str) -> str | None:
+    """Answer known aggregate results directly from database values.
+
+    This prevents a list-style answer for COUNT/SUM questions and also means
+    a failed answer-model call cannot turn a valid numeric result into a
+    misleading response.
+    """
     if not rows:
         if language == "fr":
             return "Je n'ai trouve aucun enregistrement correspondant a cette recherche. Essayez d'elargir le nom, la marque, la categorie ou la periode."
@@ -220,15 +210,39 @@ def deterministic_data_answer(question: str, rows: list[dict[str, Any]], languag
     first = rows[0]
     keys = set(first.keys())
 
+    # New semantic planner: quantity requested explicitly.
+    if {"total_quantity", "total_available_quantity", "item_records"}.issubset(keys):
+        if language == "fr":
+            return (
+                f"Vous avez actuellement {_number(first['total_quantity'])} unite(s) en stock "
+                f"sur {first['item_records']} reference(s). "
+                f"Dont {_number(first['total_available_quantity'])} unite(s) sont actuellement disponibles."
+            )
+        return (
+            f"You currently have {_number(first['total_quantity'])} unit(s) in stock "
+            f"across {first['item_records']} inventory item(s). "
+            f"Of those, {_number(first['total_available_quantity'])} unit(s) are currently available."
+        )
+
+    if {"total_available_quantity", "item_records"}.issubset(keys):
+        if language == "fr":
+            return (
+                f"Vous avez actuellement {_number(first['total_available_quantity'])} unite(s) disponibles "
+                f"sur {first['item_records']} reference(s) d'inventaire."
+            )
+        return (
+            f"You currently have {_number(first['total_available_quantity'])} available unit(s) "
+            f"across {first['item_records']} inventory item(s)."
+        )
+
+    if "item_records" in keys and len(keys) == 1:
+        if language == "fr":
+            return f"QStock contient actuellement {first['item_records']} reference(s) d'inventaire."
+        return f"QStock currently has {first['item_records']} inventory item(s)."
+
     if {
-        "item_records",
-        "total_quantity",
-        "available_quantity",
-        "unavailable_quantity",
-        "available_records",
-        "borrowed_records",
-        "maintenance_records",
-        "retired_records",
+        "item_records", "total_quantity", "available_quantity", "unavailable_quantity",
+        "available_records", "borrowed_records", "maintenance_records", "retired_records",
     }.issubset(keys):
         if language == "fr":
             return (
