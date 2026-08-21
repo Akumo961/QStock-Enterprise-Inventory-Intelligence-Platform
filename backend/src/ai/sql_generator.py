@@ -7,6 +7,7 @@ import time
 from typing import Any
 
 from src.ai.prompts import build_system_prompt, build_user_prompt
+from src.ai.query_planner import plan_inventory_query
 from src.ai.query_templates import maybe_build_template_sql
 from src.ai.sql_guard import validate_sql
 from src.core.config import settings
@@ -43,7 +44,7 @@ def parse_llm_sql_output(raw: str) -> tuple[str | None, str]:
 
 
 class SQLGenerator:
-    """Generates and validates SQL, retrying once with repair context."""
+    """Generate safe SQL using deterministic planning before the LLM."""
 
     def __init__(self, provider: Any, max_attempts: int = 2):
         self.provider = provider
@@ -64,7 +65,30 @@ class SQLGenerator:
         timing.setdefault("ollama_sql", 0.0)
         timing.setdefault("validation", 0.0)
         timing.setdefault("template_match", 0.0)
+        timing.setdefault("query_plan", 0.0)
 
+        # High-confidence semantic planning runs before legacy templates and
+        # before any LLM call. This prevents question words ("how many",
+        # "combien", "which", "quels", "montre-moi") from being interpreted
+        # as item-name search terms.
+        t0 = time.time()
+        planned = plan_inventory_query(question)
+        timing["query_plan"] += time.time() - t0
+        if planned:
+            t0 = time.time()
+            ok, sql_or_reason = validate_sql(planned.sql)
+            timing["validation"] += time.time() - t0
+            if ok:
+                logger.info("Deterministic query plan | intent=%s | %s", planned.intent, planned.description)
+                return SQLGenerationResult(
+                    sql=sql_or_reason,
+                    raw_sql=planned.sql,
+                    description=planned.description,
+                    attempts=0,
+                )
+            logger.warning("Rejected deterministic query plan: %s", sql_or_reason)
+
+        # Existing deterministic templates remain the next fast path.
         t0 = time.time()
         template = maybe_build_template_sql(question, history_summary=history_summary, last_sql=last_sql)
         timing["template_match"] += time.time() - t0
