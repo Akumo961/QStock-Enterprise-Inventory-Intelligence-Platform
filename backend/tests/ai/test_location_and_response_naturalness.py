@@ -7,7 +7,7 @@ def test_available_in_location_is_planned_before_global_available_template():
     template = maybe_build_location_template_sql("What is available in A1?")
 
     assert template is not None
-    assert "LOWER(i.location) = LOWER('a1')" in template.sql.lower()
+    assert "lower(i.location) = lower('a1')" in template.sql.lower()
     assert "i.status = 'available'" in template.sql
     assert "i.available_quantity > 0" in template.sql
 
@@ -16,7 +16,7 @@ def test_french_available_in_location_is_planned():
     template = maybe_build_location_template_sql("Qu'est-ce qui est disponible à A1 ?")
 
     assert template is not None
-    assert "LOWER(i.location) = LOWER('a1')" in template.sql.lower()
+    assert "lower(i.location) = lower('a1')" in template.sql.lower()
     assert "i.available_quantity > 0" in template.sql
 
 
@@ -32,16 +32,14 @@ def test_location_count_returns_deterministic_aggregate_shape():
 
 def test_location_list_answer_uses_natural_wording():
     answer = deterministic_list_answer(
-        [
-            {
-                "id": 1,
-                "name": "Projector",
-                "status": "available",
-                "quantity": 2,
-                "available_quantity": 1,
-                "location": "A1",
-            }
-        ],
+        [{
+            "id": 1,
+            "name": "Projector",
+            "status": "available",
+            "quantity": 2,
+            "available_quantity": 1,
+            "location": "A1",
+        }],
         "en",
     )
 
@@ -52,16 +50,14 @@ def test_location_list_answer_uses_natural_wording():
 
 def test_french_location_list_answer_is_natural():
     answer = deterministic_list_answer(
-        [
-            {
-                "id": 1,
-                "name": "Projecteur",
-                "status": "available",
-                "quantity": 2,
-                "available_quantity": 1,
-                "location": "A1",
-            }
-        ],
+        [{
+            "id": 1,
+            "name": "Projecteur",
+            "status": "available",
+            "quantity": 2,
+            "available_quantity": 1,
+            "location": "A1",
+        }],
         "fr",
     )
 
