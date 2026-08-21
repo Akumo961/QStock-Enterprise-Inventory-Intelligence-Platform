@@ -31,8 +31,27 @@ _DATA_ACTION_RE = re.compile(
     r"affiche|afficher|liste|lister|trouve|trouver|recherche|rechercher|"
     r"quel(?:le)?s?|qui|combien|compte|comparer|statistiques?|plus|moins|"
     r"emprunte(?:s|e)?|disponible(?:s)?|maintenance|retard(?:s)?|stock|"
-    r"inventaire|article(?:s)?|utilisateur(?:s)?|transaction(?:s)?|demande(?:s)?"
+    r"inventaire|article(?:s)?|utilisateur(?:s)?|transaction(?:s)?|demande(?:s)?|"
+    r"où|ou|emplacement|emplacements"
     r")\b",
+    re.IGNORECASE,
+)
+
+# Existence questions are live-data requests even when they contain no
+# explicit inventory noun. The item name itself is resolved later by the
+# deterministic query planner (e.g. "scissors" -> canonical "Ciseaux").
+_EXISTENCE_RE = re.compile(
+    r"(?:"
+    r"\bdo\s+(?:we|you)\s+have\b|"
+    r"\bdoes\s+qstock\s+have\b|"
+    r"\bis\s+there\b|"
+    r"\bare\s+there\b|"
+    r"\bavons[- ]nous\b|"
+    r"\bavez[- ]vous\b|"
+    r"\best[- ]ce\s+qu['’]on\s+a\b|"
+    r"\best[- ]ce\s+que\s+nous\s+avons\b|"
+    r"\by\s+a(?:-t-il|-t il|-il| il)\b"
+    r")",
     re.IGNORECASE,
 )
 
@@ -49,9 +68,6 @@ _GENERAL_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Process questions should not become SQL requests merely because they mention
-# an inventory noun. Example: "How do I borrow a laptop?" / "Comment emprunter
-# un ordinateur ?" asks for instructions, not live data.
 _PROCEDURAL_RE = re.compile(
     r"\bhow (?:do|can|could|should) (?:i|we|you)\b|\bhow to\b|"
     r"\bcomment (?:puis[- ]je|peut[- ]on|faire|emprunter|demander|retourner)\b|"
@@ -81,7 +97,11 @@ def classify_intent(message: str, has_history: bool = False) -> IntentResult:
         return IntentResult(Intent.GENERAL_CHAT, 1.0, "empty message")
 
     has_data_action = bool(_DATA_ACTION_RE.search(lowered))
+    is_existence = bool(_EXISTENCE_RE.search(lowered))
     is_general = bool(_GENERAL_RE.search(lowered))
+
+    if is_existence:
+        return IntentResult(Intent.INVENTORY_SQL, 0.95, "asks whether an inventory item exists")
 
     if is_general and not has_data_action:
         return IntentResult(Intent.GENERAL_CHAT, 0.92, "general assistant question")
