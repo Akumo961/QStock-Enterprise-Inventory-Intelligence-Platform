@@ -96,3 +96,20 @@ def test_global_inventory_count_stays_global():
     assert plan.intent == "sum_quantity"
     assert "i.name ILIKE" not in plan.sql
     assert "SUM(i.quantity)" in plan.sql
+
+
+def test_generic_products_question_does_not_become_an_item_filter():
+    result = resolve_item("What products are in our inventory?")
+    assert result is None
+    plan = plan_inventory_query("What products are in our inventory?")
+    assert plan is None or "i.name ILIKE '%products%'" not in plan.sql
+
+
+def test_generic_units_question_does_not_become_an_item_filter():
+    result = resolve_item("How many units do we currently have in stock?")
+    assert result is None
+
+
+def test_all_items_available_does_not_become_an_item_filter():
+    result = resolve_item("Are all our items available?")
+    assert result is None
