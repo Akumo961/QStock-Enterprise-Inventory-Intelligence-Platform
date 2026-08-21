@@ -1,13 +1,11 @@
 """Deterministic semantic query planner for common inventory questions.
 
-The planner intentionally runs before LLM SQL generation. It converts common
-English/French inventory questions into safe, explicit PostgreSQL SELECTs so
-question words such as "how many", "combien", "which" and "quels" can never
-be mistaken for item names.
+Runs before LLM SQL generation. High-confidence English/French questions are
+converted into safe PostgreSQL SELECTs so question words can never become
+item-name filters.
 """
 
 from dataclasses import dataclass
-import re
 
 
 @dataclass(frozen=True)
@@ -22,7 +20,6 @@ _COUNT_WORDS = (
     "combien", "quel est le nombre", "quelle est la quantite",
     "quelle quantité", "nombre total", "quantite totale", "quantité totale",
 )
-
 _UNIT_WORDS = (
     "unit", "units", "unités", "unites", "quantity", "quantité", "quantite",
     "stock", "inventory", "inventaire", "on hand", "in stock", "en stock",
@@ -36,6 +33,16 @@ _DISTINCT_WORDS = (
     "different items", "different products", "types d'articles", "types d'items",
 )
 
+_STATS_SQL = """SELECT COUNT(*) AS item_records,
+       COALESCE(SUM(i.quantity), 0) AS total_quantity,
+       COALESCE(SUM(i.available_quantity), 0) AS available_quantity,
+       COALESCE(SUM(i.quantity - i.available_quantity), 0) AS unavailable_quantity,
+       COUNT(*) FILTER (WHERE i.status = 'available') AS available_records,
+       COUNT(*) FILTER (WHERE i.status = 'borrowed') AS borrowed_records,
+       COUNT(*) FILTER (WHERE i.status = 'maintenance') AS maintenance_records,
+       COUNT(*) FILTER (WHERE i.status = 'retired') AS retired_records
+FROM items AS i"""
+
 
 def plan_inventory_query(question: str) -> PlannedQuery | None:
     """Return a deterministic query for high-confidence aggregate/list asks."""
@@ -43,48 +50,47 @@ def plan_inventory_query(question: str) -> PlannedQuery | None:
     if not text:
         return None
 
-    # Aggregations must run before generic listing/available detection.
+    # Always resolve aggregation before generic listing/availability rules.
+    # The result deliberately uses QStock's existing statistics shape so the
+    # current deterministic answer path can handle it without another LLM call.
     if _contains_any(text, _COUNT_WORDS):
         if _contains_any(text, _DISTINCT_WORDS):
             return PlannedQuery(
-                sql="SELECT COUNT(*) AS item_records FROM items AS i",
-                description="Number of distinct inventory item records.",
+                sql=_STATS_SQL,
+                description="Inventory statistics including the number of item records.",
                 intent="count_records",
             )
 
-        # "How many units/items are available/in stock?" means inventory
-        # quantity, not number of database rows. Use available_quantity when
-        # availability is explicitly requested.
         if _contains_any(text, _AVAILABLE_WORDS):
             return PlannedQuery(
-                sql="SELECT COALESCE(SUM(i.available_quantity), 0) AS total_available_quantity, COUNT(*) AS item_records FROM items AS i",
-                description="Total currently available inventory units and item records.",
+                sql=_STATS_SQL,
+                description="Inventory statistics including currently available quantity.",
                 intent="sum_available_quantity",
             )
 
         if _contains_any(text, _UNIT_WORDS):
             return PlannedQuery(
-                sql="SELECT COALESCE(SUM(i.quantity), 0) AS total_quantity, COALESCE(SUM(i.available_quantity), 0) AS total_available_quantity, COUNT(*) AS item_records FROM items AS i",
-                description="Total inventory quantity, available quantity, and item records.",
+                sql=_STATS_SQL,
+                description="Inventory statistics including total and available quantity.",
                 intent="sum_quantity",
             )
 
         return PlannedQuery(
-            sql="SELECT COUNT(*) AS item_records FROM items AS i",
-            description="Number of inventory item records.",
+            sql=_STATS_SQL,
+            description="Inventory statistics including the number of item records.",
             intent="count_records",
         )
 
-    # Explicit total-stock questions that do not use "how many".
-    if _contains_any(text, ("total stock", "total inventory", "total quantity", "stock total", "inventaire total", "stock total")):
+    if _contains_any(
+        text,
+        ("total stock", "total inventory", "total quantity", "stock total", "inventaire total", "stock total"),
+    ):
         return PlannedQuery(
-            sql="SELECT COALESCE(SUM(i.quantity), 0) AS total_quantity, COALESCE(SUM(i.available_quantity), 0) AS total_available_quantity, COUNT(*) AS item_records FROM items AS i",
-            description="Total inventory quantity, available quantity, and item records.",
+            sql=_STATS_SQL,
+            description="Inventory statistics including total and available quantity.",
             intent="sum_quantity",
         )
 
-    # Availability listing: only list rows when the user asks to show/list,
-    # not when the question is an aggregate.
     if _contains_any(text, _AVAILABLE_WORDS) and _contains_any(
         text,
         ("show", "list", "display", "which", "what", "find", "affiche", "afficher", "liste", "quels", "quelles", "montre", "montrer"),
