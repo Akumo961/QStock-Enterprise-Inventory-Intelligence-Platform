@@ -604,41 +604,46 @@ def _extract_location(text: str) -> str:
         a A5
         in room A1
         dans salle A5
+        location A1
+        emplacement A5
 
-    Status/inventory words are explicitly rejected so expressions such as
-    "in stock" or "in maintenance" cannot accidentally become locations.
+    A location must match the inventory location format rather than any
+    arbitrary word following a preposition. This prevents item phrases such
+    as "a projector" or "un projecteur" from being interpreted as locations.
     """
     match = re.search(
         r"\b(?:in|at|dans|à|a)\s+"
-        r"(?:location|building|room|emplacement|bâtiment|batiment|salle)?"
+        r"(?:location|building|room|emplacement|bâtiment|batiment|salle)"
         r"\s*[:\-]?\s*"
-        r"([A-Za-z0-9]+)\b",
+        r"([A-Za-z]+[0-9]+|[0-9]+[A-Za-z]+)\b",
         text,
         flags=re.IGNORECASE,
     )
 
     if not match:
+        # Also support direct location references such as:
+        # "location A1" / "emplacement A5"
+        match = re.search(
+            r"\b(?:location|emplacement|room|salle)\s*[:\-]?\s*"
+            r"([A-Za-z]+[0-9]+|[0-9]+[A-Za-z]+)\b",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+    if not match:
+        # Support simple inventory phrases such as:
+        # "in A1", "at B2", "dans A5", "à A1", "a A1"
+        match = re.search(
+            r"\b(?:in|at|dans|à|a)\s+"
+            r"([A-Za-z]+[0-9]+|[0-9]+[A-Za-z]+)\b",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+    if not match:
         return ""
 
-    candidate = match.group(1).strip()
-
-    if candidate.lower() in {
-        "stock",
-        "the",
-        "a",
-        "an",
-        "this",
-        "that",
-        "inventory",
-        "maintenance",
-        "available",
-        "borrowed",
-        "retired",
-        "overdue",
-    }:
-        return ""
-
-    return candidate
+    return match.group(1).strip()
 
 
 def _escape_sql_literal(value: str) -> str:
