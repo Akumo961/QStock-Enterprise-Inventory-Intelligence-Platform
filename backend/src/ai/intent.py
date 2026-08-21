@@ -41,11 +41,17 @@ _DATA_ACTION_RE = re.compile(
 # explicit inventory noun. The item name itself is resolved later by the
 # deterministic query planner (e.g. "scissors" -> canonical "Ciseaux").
 _EXISTENCE_RE = re.compile(
-    r"(?:\bdo\s+(?:we|you)\s+have\b|\bdoes\s+qstock\s+have\b|"
-    r"\bis\s+there\s+(?:a|an|any)\b|\bare\s+there\s+any\b|"
-    r"\bavons[- ]nous\b|\bavez[- ]vous\b|"
-    r"\best[- ]ce\s+qu['’]on\s+a\b|\best[- ]ce\s+que\s+nous\s+avons\b|"
-    r"\by\s+a[-t]?[- ]il\b)",
+    r"(?:"
+    r"\bdo\s+(?:we|you)\s+have\b|"
+    r"\bdoes\s+qstock\s+have\b|"
+    r"\bis\s+there\b|"
+    r"\bare\s+there\b|"
+    r"\bavons[- ]nous\b|"
+    r"\bavez[- ]vous\b|"
+    r"\best[- ]ce\s+qu['’]on\s+a\b|"
+    r"\best[- ]ce\s+que\s+nous\s+avons\b|"
+    r"\by\s+a(?:-t-il|-t il|-il| il)\b"
+    r")",
     re.IGNORECASE,
 )
 

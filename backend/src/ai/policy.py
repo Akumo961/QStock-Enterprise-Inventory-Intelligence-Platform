@@ -17,8 +17,7 @@ _PROMPT_INJECTION_RE = re.compile(
     r"ignore|disregard|forget|override|bypass|reveal|show|print|leak"
     r").{0,80}(?:previous|prior|above|system|developer|instructions?|prompt|rules?|secret|password|api key|token)"
     r"|(?:system prompt|developer message|hidden instructions?|internal prompt)"
-    r"|(?:ignore|disregard|oublie|ignorez|contourne).{0,80}(?:instructions?|r[eè]gles?|prompt|syst[eè]me)"
-    r")",
+    r"|(?:ignore|disregard|oublie|ignorez|contourne).{0,80}(?:instructions?|r[eè]gles?|prompt|syst[eè]me)",
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -48,3 +47,4 @@ def safety_message(language: str = "en") -> str:
     if language == "fr":
         return "Je peux vous aider avec l'inventaire et l'utilisation de QStock, mais je ne peux pas divulguer les instructions internes, secrets ou données protégées."
     return "I can help with QStock inventory and usage, but I can't disclose internal instructions, secrets, or protected data."
+

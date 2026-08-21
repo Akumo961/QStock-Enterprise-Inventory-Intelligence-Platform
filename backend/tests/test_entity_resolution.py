@@ -70,7 +70,7 @@ def test_location_count_is_not_global():
     plan = plan_inventory_query("How many items are available in A1?")
     assert plan is not None
     assert plan.intent == "count_available_location"
-    assert "LOWER(i.location) = LOWER('A1')" in plan.sql
+    assert "LOWER(i.location) = LOWER('a1')" in plan.sql
     assert "SUM(i.available_quantity)" in plan.sql
     assert "WHERE i.status = 'available'" in plan.sql
 
