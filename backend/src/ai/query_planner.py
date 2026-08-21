@@ -77,7 +77,7 @@ def plan_inventory_query(question: str) -> PlannedQuery | None:
     if not text:
         return None
 
-    # Entity resolution MUST happen before generic count handling.
+    # Resolve a concrete item before generic count/list handling.
     item = resolve_item(question)
     if item:
         item_sql = _escape_sql_literal(item.canonical_name)
@@ -126,67 +126,72 @@ WHERE LOWER(i.name) = LOWER('{item_sql}'){location_clause}""",
             return _item_detail_plan(item_sql, item.canonical_name, location_clause, "item_availability")
 
         if _contains_location_question(text):
-            return PlannedQuery(
-                sql=f"""SELECT i.id, i.name, i.item_code, i.brand, i.model, i.status,
-       i.quantity, i.available_quantity, i.location
-FROM items AS i
-WHERE LOWER(i.name) = LOWER('{item_sql}'){location_clause}
-ORDER BY i.name
-LIMIT 100""",
-                description=f"Location and inventory details for {item.canonical_name}.",
-                intent="locate_item",
-            )
+            return _item_detail_plan(item_sql, item.canonical_name, location_clause, "locate_item")
 
         if _contains_any(text, _LIST_WORDS) or "do we have" in text or "does" in text:
             return _item_detail_plan(item_sql, item.canonical_name, location_clause, "find_item")
 
-    # Location-specific aggregate questions must happen before generic counts.
-    if _contains_any(text, _COUNT_WORDS):
-        location = _extract_location(text)
-        if location:
-            location_sql = _escape_sql_literal(location)
-            location_filter = f"LOWER(i.location) = LOWER('{location_sql}')"
-            if _contains_any(text, _MAINTENANCE_WORDS):
-                return PlannedQuery(
-                    sql=f"""SELECT COUNT(*) AS maintenance_item_records,
+    # Explicit location aggregates must be evaluated before global counts.
+    location = _extract_location(text)
+    if location and _contains_any(text, _COUNT_WORDS):
+        location_sql = _escape_sql_literal(location)
+        location_filter = f"LOWER(i.location) = LOWER('{location_sql}')"
+        if _contains_any(text, _MAINTENANCE_WORDS):
+            return PlannedQuery(
+                sql=f"""SELECT COUNT(*) AS maintenance_item_records,
        COALESCE(SUM(i.quantity), 0) AS maintenance_total_quantity
 FROM items AS i
 WHERE i.status = 'maintenance'
   AND {location_filter}""",
-                    description=f"Inventory under maintenance in {location}.",
-                    intent="count_maintenance_location",
-                )
-            if _contains_any(text, _BORROWED_WORDS):
-                return PlannedQuery(
-                    sql=f"""SELECT COUNT(*) AS borrowed_item_records,
+                description=f"Inventory under maintenance in {location}.",
+                intent="count_maintenance_location",
+            )
+        if _contains_any(text, _BORROWED_WORDS):
+            return PlannedQuery(
+                sql=f"""SELECT COUNT(*) AS borrowed_item_records,
        COALESCE(SUM(i.quantity - i.available_quantity), 0) AS borrowed_total_quantity
 FROM items AS i
 WHERE i.status = 'borrowed'
   AND {location_filter}""",
-                    description=f"Borrowed inventory in {location}.",
-                    intent="count_borrowed_location",
-                )
-            if _contains_any(text, _AVAILABLE_WORDS):
-                return PlannedQuery(
-                    sql=f"""SELECT COUNT(*) AS item_records,
+                description=f"Borrowed inventory in {location}.",
+                intent="count_borrowed_location",
+            )
+        if _contains_any(text, _AVAILABLE_WORDS):
+            return PlannedQuery(
+                sql=f"""SELECT COUNT(*) AS item_records,
        COALESCE(SUM(i.available_quantity), 0) AS total_available_quantity
 FROM items AS i
 WHERE i.status = 'available'
   AND i.available_quantity > 0
   AND {location_filter}""",
-                    description=f"Available inventory in {location}.",
-                    intent="count_available_location",
-                )
-            return PlannedQuery(
-                sql=f"""SELECT COUNT(*) AS item_records,
+                description=f"Available inventory in {location}.",
+                intent="count_available_location",
+            )
+        return PlannedQuery(
+            sql=f"""SELECT COUNT(*) AS item_records,
        COALESCE(SUM(i.quantity), 0) AS total_quantity,
        COALESCE(SUM(i.available_quantity), 0) AS total_available_quantity
 FROM items AS i
 WHERE {location_filter}""",
-                description=f"Inventory in {location}.",
-                intent="count_location",
-            )
+            description=f"Inventory in {location}.",
+            intent="count_location",
+        )
 
+    # Explicit location list questions, e.g. "What items are in A1?".
+    if location and _contains_any(text, _LIST_WORDS):
+        location_sql = _escape_sql_literal(location)
+        return PlannedQuery(
+            sql=f"""SELECT i.id, i.name, i.item_code, i.brand, i.model, i.status,
+       i.quantity, i.available_quantity, i.location
+FROM items AS i
+WHERE LOWER(i.location) = LOWER('{location_sql}')
+ORDER BY i.name
+LIMIT 100""",
+            description=f"Inventory items located in {location}.",
+            intent="list_location",
+        )
+
+    if _contains_any(text, _COUNT_WORDS):
         if _contains_any(text, _MAINTENANCE_WORDS):
             return PlannedQuery(
                 sql="""SELECT COUNT(*) AS maintenance_item_records,
@@ -196,7 +201,6 @@ WHERE i.status = 'maintenance'""",
                 description="Inventory items currently in maintenance.",
                 intent="count_maintenance",
             )
-
         if _contains_any(text, _BORROWED_WORDS):
             return PlannedQuery(
                 sql="""SELECT COUNT(*) AS borrowed_item_records,
@@ -206,7 +210,6 @@ WHERE i.status = 'borrowed'""",
                 description="Inventory items currently borrowed.",
                 intent="count_borrowed",
             )
-
         if _contains_any(text, _RETIRED_WORDS):
             return PlannedQuery(
                 sql="""SELECT COUNT(*) AS retired_item_records,
@@ -216,7 +219,6 @@ WHERE i.status = 'retired'""",
                 description="Inventory items currently retired.",
                 intent="count_retired",
             )
-
         if _contains_any(text, _DISTINCT_WORDS):
             return PlannedQuery(
                 sql="""SELECT COUNT(*) AS item_records
@@ -224,7 +226,6 @@ FROM items AS i""",
                 description="Number of distinct inventory item records.",
                 intent="count_records",
             )
-
         if _contains_any(text, _AVAILABLE_WORDS):
             return PlannedQuery(
                 sql="""SELECT COUNT(*) FILTER (WHERE i.status = 'available') AS item_records,
@@ -233,7 +234,6 @@ FROM items AS i""",
                 description="Currently available inventory quantity and item records.",
                 intent="count_available",
             )
-
         if _contains_any(text, _UNIT_WORDS):
             return PlannedQuery(
                 sql="""SELECT COUNT(*) AS item_records,
@@ -243,7 +243,6 @@ FROM items AS i""",
                 description="Total inventory quantity and available quantity.",
                 intent="sum_quantity",
             )
-
         return PlannedQuery(
             sql="""SELECT COUNT(*) AS item_records
 FROM items AS i""",
