@@ -37,6 +37,18 @@ _DATA_ACTION_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Existence questions are live-data requests even when they contain no
+# explicit inventory noun. The item name itself is resolved later by the
+# deterministic query planner (e.g. "scissors" -> canonical "Ciseaux").
+_EXISTENCE_RE = re.compile(
+    r"(?:\bdo\s+(?:we|you)\s+have\b|\bdoes\s+qstock\s+have\b|"
+    r"\bis\s+there\s+(?:a|an|any)\b|\bare\s+there\s+any\b|"
+    r"\bavons[- ]nous\b|\bavez[- ]vous\b|"
+    r"\best[- ]ce\s+qu['’]on\s+a\b|\best[- ]ce\s+que\s+nous\s+avons\b|"
+    r"\by\s+a[-t]?[- ]il\b)",
+    re.IGNORECASE,
+)
+
 _GENERAL_RE = re.compile(
     r"\b("
     r"what can you do|help|explain|how do you work|what is low stock|"
@@ -79,7 +91,11 @@ def classify_intent(message: str, has_history: bool = False) -> IntentResult:
         return IntentResult(Intent.GENERAL_CHAT, 1.0, "empty message")
 
     has_data_action = bool(_DATA_ACTION_RE.search(lowered))
+    is_existence = bool(_EXISTENCE_RE.search(lowered))
     is_general = bool(_GENERAL_RE.search(lowered))
+
+    if is_existence:
+        return IntentResult(Intent.INVENTORY_SQL, 0.95, "asks whether an inventory item exists")
 
     if is_general and not has_data_action:
         return IntentResult(Intent.GENERAL_CHAT, 0.92, "general assistant question")
