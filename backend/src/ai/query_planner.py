@@ -77,7 +77,6 @@ def plan_inventory_query(question: str) -> PlannedQuery | None:
     if not text:
         return None
 
-    # Resolve a concrete item before generic count/list handling.
     item = resolve_item(question)
     if item:
         item_sql = _escape_sql_literal(item.canonical_name)
@@ -92,11 +91,13 @@ def plan_inventory_query(question: str) -> PlannedQuery | None:
                 return _item_status_count_plan(item_sql, "maintenance", "maintenance", location_clause)
             if _contains_any(text, _BORROWED_WORDS):
                 return PlannedQuery(
-                    sql=f"""SELECT COUNT(*) AS item_records,
+                    sql=f"""SELECT i.name,
+       COUNT(*) AS item_records,
        COALESCE(SUM(i.quantity - i.available_quantity), 0) AS borrowed_total_quantity
 FROM items AS i
 WHERE LOWER(i.name) = LOWER('{item_sql}')
-  AND i.status = 'borrowed'{location_clause}""",
+  AND i.status = 'borrowed'{location_clause}
+GROUP BY i.name""",
                     description=f"Borrowed quantity for {item.canonical_name}.",
                     intent="count_item_borrowed",
                 )
@@ -104,20 +105,24 @@ WHERE LOWER(i.name) = LOWER('{item_sql}')
                 return _item_status_count_plan(item_sql, "retired", "retired", location_clause)
             if _contains_any(text, _AVAILABLE_WORDS):
                 return PlannedQuery(
-                    sql=f"""SELECT COUNT(*) AS item_records,
+                    sql=f"""SELECT i.name,
+       COUNT(*) AS item_records,
        COALESCE(SUM(i.available_quantity), 0) AS total_available_quantity
 FROM items AS i
 WHERE LOWER(i.name) = LOWER('{item_sql}')
-  AND i.available_quantity > 0{location_clause}""",
+  AND i.available_quantity > 0{location_clause}
+GROUP BY i.name""",
                     description=f"Available quantity for {item.canonical_name}.",
                     intent="count_item_available",
                 )
             return PlannedQuery(
-                sql=f"""SELECT COUNT(*) AS item_records,
+                sql=f"""SELECT i.name,
+       COUNT(*) AS item_records,
        COALESCE(SUM(i.quantity), 0) AS total_quantity,
        COALESCE(SUM(i.available_quantity), 0) AS total_available_quantity
 FROM items AS i
-WHERE LOWER(i.name) = LOWER('{item_sql}'){location_clause}""",
+WHERE LOWER(i.name) = LOWER('{item_sql}'){location_clause}
+GROUP BY i.name""",
                 description=f"Total quantity for {item.canonical_name}.",
                 intent="count_item",
             )
@@ -131,7 +136,6 @@ WHERE LOWER(i.name) = LOWER('{item_sql}'){location_clause}""",
         if _contains_any(text, _LIST_WORDS) or "do we have" in text or "does" in text:
             return _item_detail_plan(item_sql, item.canonical_name, location_clause, "find_item")
 
-    # Explicit location aggregates must be evaluated before global counts.
     location = _extract_location(text)
     if location and _contains_any(text, _COUNT_WORDS):
         location_sql = _escape_sql_literal(location)
@@ -177,7 +181,6 @@ WHERE {location_filter}""",
             intent="count_location",
         )
 
-    # Explicit location list questions, e.g. "What items are in A1?".
     if location and _contains_any(text, _LIST_WORDS):
         location_sql = _escape_sql_literal(location)
         return PlannedQuery(
@@ -283,11 +286,13 @@ LIMIT 100""",
 
 def _item_status_count_plan(item_sql: str, status: str, label: str, location_clause: str) -> PlannedQuery:
     return PlannedQuery(
-        sql=f"""SELECT COUNT(*) AS item_records,
+        sql=f"""SELECT i.name,
+       COUNT(*) AS item_records,
        COALESCE(SUM(i.quantity), 0) AS {label}_total_quantity
 FROM items AS i
 WHERE LOWER(i.name) = LOWER('{item_sql}')
-  AND i.status = '{status}'{location_clause}""",
+  AND i.status = '{status}'{location_clause}
+GROUP BY i.name""",
         description=f"{label.title()} quantity for the requested item.",
         intent=f"count_item_{label}",
     )
