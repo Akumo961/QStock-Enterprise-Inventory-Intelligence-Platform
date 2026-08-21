@@ -37,7 +37,7 @@ def test_item_count_uses_item_name_and_sum_quantity():
     assert plan is not None
     assert plan.intent == "count_item"
     assert "SUM(i.quantity)" in plan.sql
-    assert "i.name ILIKE '%Ciseaux%'" in plan.sql
+    assert "LOWER(i.name) = LOWER('Ciseaux')" in plan.sql
     assert "FROM items AS i" in plan.sql
 
 
@@ -46,7 +46,7 @@ def test_item_available_count_is_filtered_to_item():
     assert plan is not None
     assert plan.intent == "count_item_available"
     assert "SUM(i.available_quantity)" in plan.sql
-    assert "i.name ILIKE '%Ciseaux%'" in plan.sql
+    assert "LOWER(i.name) = LOWER('Ciseaux')" in plan.sql
     assert "i.available_quantity > 0" in plan.sql
 
 
@@ -54,7 +54,7 @@ def test_item_availability_is_not_a_global_inventory_list():
     plan = plan_inventory_query("Are the projectors available?")
     assert plan is not None
     assert plan.intent == "item_availability"
-    assert "i.name ILIKE '%Projecteur%'" in plan.sql
+    assert "LOWER(i.name) = LOWER('Projecteur')" in plan.sql
     assert "i.status" in plan.sql
 
 
@@ -62,7 +62,7 @@ def test_item_location_is_resolved_to_item_query():
     plan = plan_inventory_query("Where is the projector?")
     assert plan is not None
     assert plan.intent == "locate_item"
-    assert "i.name ILIKE '%Projecteur%'" in plan.sql
+    assert "LOWER(i.name) = LOWER('Projecteur')" in plan.sql
     assert "i.location" in plan.sql
 
 
@@ -70,7 +70,7 @@ def test_location_count_is_not_global():
     plan = plan_inventory_query("How many items are available in A1?")
     assert plan is not None
     assert plan.intent == "count_available_location"
-    assert "i.location ILIKE '%A1%'" in plan.sql
+    assert "LOWER(i.location) = LOWER('A1')" in plan.sql
     assert "SUM(i.available_quantity)" in plan.sql
     assert "WHERE i.status = 'available'" in plan.sql
 
@@ -79,7 +79,7 @@ def test_french_item_question_resolves_same_as_english_alias():
     plan = plan_inventory_query("Combien de Ciseaux avons-nous ?")
     assert plan is not None
     assert plan.intent == "count_item"
-    assert "i.name ILIKE '%Ciseaux%'" in plan.sql
+    assert "LOWER(i.name) = LOWER('Ciseaux')" in plan.sql
 
 
 def test_global_maintenance_query_stays_global():
@@ -87,14 +87,14 @@ def test_global_maintenance_query_stays_global():
     assert plan is not None
     assert plan.intent == "count_maintenance"
     assert "WHERE i.status = 'maintenance'" in plan.sql
-    assert "i.name ILIKE" not in plan.sql
+    assert "LOWER(i.name)" not in plan.sql
 
 
 def test_global_inventory_count_stays_global():
     plan = plan_inventory_query("How many units do we currently have in stock?")
     assert plan is not None
     assert plan.intent == "sum_quantity"
-    assert "i.name ILIKE" not in plan.sql
+    assert "LOWER(i.name)" not in plan.sql
     assert "SUM(i.quantity)" in plan.sql
 
 
@@ -102,7 +102,7 @@ def test_generic_products_question_does_not_become_an_item_filter():
     result = resolve_item("What products are in our inventory?")
     assert result is None
     plan = plan_inventory_query("What products are in our inventory?")
-    assert plan is None or "i.name ILIKE '%products%'" not in plan.sql
+    assert plan is None or "LOWER(i.name) = LOWER('products')" not in plan.sql
 
 
 def test_generic_units_question_does_not_become_an_item_filter():
@@ -112,4 +112,9 @@ def test_generic_units_question_does_not_become_an_item_filter():
 
 def test_all_items_available_does_not_become_an_item_filter():
     result = resolve_item("Are all our items available?")
+    assert result is None
+
+
+def test_pronoun_follow_up_does_not_become_an_item_filter():
+    result = resolve_item("Where are they located?")
     assert result is None
