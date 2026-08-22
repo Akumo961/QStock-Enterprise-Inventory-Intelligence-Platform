@@ -25,29 +25,59 @@ class ResolvedFollowUp:
 
 
 _FOLLOWUP_PATTERNS = (
-    re.compile(r"^how many (?:do we have|are there|do you have)?\s*(?:available|in stock|units?)?\??$", re.I),
-    re.compile(r"^(?:how much|what(?:'s| is) the) (?:available|remaining|total)?\s*(?:stock|quantity)?\??$", re.I),
-    re.compile(r"^(?:are|is) (?:they|it|those|these) (?:available|in stock)\??$", re.I),
-    re.compile(r"^(?:where (?:are|is)|where can i find) (?:they|it|those|these)\??$", re.I),
-    re.compile(r"^(?:what|which) (?:about|of) (?:them|it|those|these)\??$", re.I),
-    re.compile(r"^(?:and|what about) (?:the )?(?:quantity|availability|location|status)\??$", re.I),
-    re.compile(r"^(?:combien|quelle quantité) (?:en|de)?\s*(?:reste|restent|sont disponibles|est disponible)\??$", re.I),
-    re.compile(r"^(?:sont-ils|sont elles|sont-ils|est-il|est-elle) (?:disponibles?|en stock)\??$", re.I),
-    re.compile(r"^(?:où|ou) (?:sont|est)-?(?:ils|elles|il|elle)\??$", re.I),
+    re.compile(
+        r"^how many (?:do we have|are there|do you have)?\s*"
+        r"(?:available|in stock|units?)?\??$",
+        re.I,
+    ),
+    re.compile(
+        r"^(?:how much|what(?:'s| is) the) (?:available|remaining|total)?\s*"
+        r"(?:stock|quantity)?\??$",
+        re.I,
+    ),
+    re.compile(
+        r"^(?:are|is) (?:they|it|those|these) (?:available|in stock)\??$",
+        re.I,
+    ),
+    re.compile(
+        r"^(?:where (?:are|is)|where can i find) "
+        r"(?:they|it|those|these)\??$",
+        re.I,
+    ),
+    re.compile(
+        r"^(?:what|which) (?:about|of) (?:them|it|those|these)\??$",
+        re.I,
+    ),
+    re.compile(
+        r"^(?:and|what about) (?:the )?"
+        r"(?:quantity|availability|location|status)\??$",
+        re.I,
+    ),
+    re.compile(
+        r"^(?:combien|quelle quantité) (?:en|de)?\s*"
+        r"(?:reste|restent|sont disponibles|est disponible)\??$",
+        re.I,
+    ),
+    re.compile(
+        r"^(?:sont-ils|sont elles|est-il|est-elle) "
+        r"(?:disponibles?|en stock)\??$",
+        re.I,
+    ),
+    re.compile(
+        r"^(?:où|ou) (?:sont|est)-?(?:ils|elles|il|elle)\??$",
+        re.I,
+    ),
 )
 
 
 def resolve_follow_up(question: str, history: list[TurnMetadata]) -> ResolvedFollowUp:
-    """Resolve a clearly underspecified follow-up against the latest item turn.
-
-    The resolver is intentionally conservative: explicit entities always win,
-    and generic questions without a recognized follow-up shape are unchanged.
-    """
+    """Resolve a clearly underspecified follow-up against the latest item turn."""
     original = " ".join((question or "").strip().split())
-    if not original or resolve_item(original):
-        return ResolvedFollowUp(original, original, resolve_item(original), None, False)
+    explicit_item = resolve_item(original) if original else None
+    if explicit_item:
+        return ResolvedFollowUp(original, original, explicit_item, None, False)
 
-    if not _looks_like_follow_up(original):
+    if not original or not _looks_like_follow_up(original):
         return ResolvedFollowUp(original, original, None, None, False)
 
     for index in range(len(history) - 1, -1, -1):
@@ -55,7 +85,9 @@ def resolve_follow_up(question: str, history: list[TurnMetadata]) -> ResolvedFol
         item = resolve_item(previous.question)
         if item:
             resolved = _rewrite_follow_up(original, item.canonical_name)
-            return ResolvedFollowUp(original, resolved, item, index, resolved != original)
+            return ResolvedFollowUp(
+                original, resolved, item, index, resolved != original
+            )
 
     return ResolvedFollowUp(original, original, None, None, False)
 
@@ -66,8 +98,7 @@ def _looks_like_follow_up(question: str) -> bool:
 
 
 def _rewrite_follow_up(question: str, canonical_item: str) -> str:
-    q = question.strip()
-    lower = q.lower().replace("’", "'")
+    lower = question.strip().lower().replace("’", "'")
 
     if re.match(r"^how many", lower):
         if "available" in lower or "in stock" in lower:
