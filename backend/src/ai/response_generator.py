@@ -11,48 +11,56 @@ from src.ai.prompts import (
 )
 from src.core.config import settings
 
-# Columns that are verbose and rarely needed in a user-facing answer. Strip
-# them from rows before serializing into the answer prompt so the context
-# stays small and inference stays fast. The values are still returned in
-# ChatResponse.rows for the frontend to display if it wants them.
-_VERBOSE_COLUMNS = frozenset({
-    "description", "notes", "image_url", "qr_code_data", "qr_code_image",
-    "hashed_password", "purchase_date", "created_at", "updated_at",
-    "is_borrowable", "requires_approval", "max_borrow_days",
-})
+_VERBOSE_COLUMNS = frozenset(
+    {
+        "description",
+        "notes",
+        "image_url",
+        "qr_code_data",
+        "qr_code_image",
+        "hashed_password",
+        "purchase_date",
+        "created_at",
+        "updated_at",
+        "is_borrowable",
+        "requires_approval",
+        "max_borrow_days",
+    }
+)
 
 
 def slim_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Return rows with verbose columns stripped for prompt serialization."""
+    """Remove verbose fields before sending database rows to an LLM."""
     if not rows:
         return rows
-    # Only strip if the row has more than 6 columns — for narrow aggregate
-    # results (stats, counts) we keep everything since they're already compact.
     if len(rows[0]) <= 6:
         return rows
     return [
-        {k: v for k, v in row.items() if k not in _VERBOSE_COLUMNS}
+        {key: value for key, value in row.items() if key not in _VERBOSE_COLUMNS}
         for row in rows
     ]
 
 
 def serialize_rows_for_prompt(rows: list[dict[str, Any]], limit: int) -> str:
-    """Compact, token-efficient serialization of retrieved rows."""
+    """Serialize database rows compactly for answer generation."""
     if not rows:
         return "(no rows)"
 
+    compact_rows = slim_rows(rows)
     lines: list[str] = []
-    for index, row in enumerate(rows[:limit], start=1):
+    for index, row in enumerate(compact_rows[:limit], start=1):
         pairs = ", ".join(f"{key}={value}" for key, value in row.items())
         lines.append(f"{index}. {pairs}")
 
     if len(rows) > limit:
-        lines.append(f"... and {len(rows) - limit} more row(s), total matched: {len(rows)}.")
+        lines.append(
+            f"... and {len(rows) - limit} more row(s), total matched: {len(rows)}."
+        )
     return "\n".join(lines)
 
 
 class ResponseGenerator:
-    """Turns retrieved data or general prompts into user-facing answers."""
+    """Turn retrieved data or general prompts into user-facing answers."""
 
     def __init__(self, provider: Any):
         self.provider = provider
@@ -66,6 +74,7 @@ class ResponseGenerator:
         rows: list[dict[str, Any]],
         history_messages: list[dict[str, str]],
     ) -> str:
+        """Generate a natural-language answer grounded in retrieved rows."""
         row_limit = getattr(settings, "AI_CONTEXT_ROW_LIMIT", 15)
         max_tokens = getattr(settings, "AI_ANSWER_MAX_TOKENS", 180)
         data_block = serialize_rows_for_prompt(rows, row_limit)
@@ -102,6 +111,7 @@ class ResponseGenerator:
         sql: str,
         history_summary: str,
     ) -> str:
+        """Generate a useful answer when the query returned no rows."""
         messages = [
             {"role": "system", "content": build_answer_system_prompt(language)},
             {
@@ -114,45 +124,64 @@ class ResponseGenerator:
                 ),
             },
         ]
-        answer_num_ctx = getattr(settings, "AI_ANSWER_NUM_CTX", 4096)
-        return self.provider.complete(messages, max_tokens=120, temperature=0.25, num_ctx=answer_num_ctx).strip()
+        answer_num_ctx = getattr(settings, "AI_ANSWER_NUM_CTX", 2048)
+        return self.provider.complete(
+            messages,
+            max_tokens=120,
+            temperature=0.25,
+            num_ctx=answer_num_ctx,
+        ).strip()
 
     def general_answer(self, *, language: str, question: str) -> str:
+        """Answer a general non-database question."""
         messages = [
             {"role": "system", "content": build_general_system_prompt(language)},
             {"role": "user", "content": build_general_user_prompt(question)},
         ]
-        answer_num_ctx = getattr(settings, "AI_ANSWER_NUM_CTX", 4096)
-        return self.provider.complete(messages, max_tokens=180, temperature=0.35, num_ctx=answer_num_ctx).strip()
+        answer_num_ctx = getattr(settings, "AI_ANSWER_NUM_CTX", 2048)
+        return self.provider.complete(
+            messages,
+            max_tokens=180,
+            temperature=0.35,
+            num_ctx=answer_num_ctx,
+        ).strip()
 
 
 def fallback_format_rows(rows: list[dict[str, Any]], language: str) -> str:
+    """Safe deterministic fallback for arbitrary result rows."""
     if not rows:
         if language == "fr":
-            return "Je n'ai trouve aucun enregistrement correspondant. Essayez d'elargir le nom, la categorie ou la periode."
-        return "I did not find matching records. Try broadening the item name, category, or date range."
+            return (
+                "Je n'ai trouvé aucun enregistrement correspondant. "
+                "Essayez d'élargir le nom, la catégorie ou la période."
+            )
+        return (
+            "I did not find matching records. "
+            "Try broadening the item name, category, or date range."
+        )
 
-    lines: list[str] = []
+    lines = []
     for row in rows[:20]:
         parts = "; ".join(f"{key}: {value}" for key, value in row.items())
         lines.append(f"- {parts}")
 
-    prefix = f"Found {len(rows)} result(s)." if language != "fr" else f"{len(rows)} resultat(s) trouve(s)."
+    if len(rows) > 20:
+        lines.append(f"- ... {len(rows) - 20} more result(s).")
+
+    prefix = (
+        f"{len(rows)} résultat(s) trouvé(s)."
+        if language == "fr"
+        else f"Found {len(rows)} result(s)."
+    )
     return prefix + "\n\n" + "\n".join(lines)
 
 
-def deterministic_list_answer(rows: list[dict[str, Any]], language: str, max_items: int = 20) -> str | None:
-    """Format a list-of-rows result directly in Python, with no LLM call.
-
-    This is deliberately conservative: it only fires when every row has a
-    recognizable "label" field (name or full_name) — the shape produced by
-    essentially every item/user listing template in query_templates.py. Any
-    row shape it doesn't recognize returns None, so the caller falls through
-    to the LLM exactly as before. No functionality is lost; only the
-    overwhelmingly common case (a simple list of items or people) gets the
-    speedup, since on CPU/GPU-split hardware even a short LLM phrasing call
-    can take 20-30+ seconds — far more than formatting ever costs.
-    """
+def deterministic_list_answer(
+    rows: list[dict[str, Any]],
+    language: str,
+    max_items: int = 20,
+) -> str | None:
+    """Format simple item/user lists without an LLM call."""
     if not rows:
         return None
 
@@ -164,63 +193,127 @@ def deterministic_list_answer(rows: list[dict[str, Any]], language: str, max_ite
     else:
         return None
 
-    # Fields worth showing inline, in a sensible reading order. Anything not
-    # in this list (ids, timestamps, internal flags) is simply omitted —
-    # matches what the LLM was already choosing to surface in practice.
-    _DISPLAY_FIELDS = [
+    display_fields = [
         ("item_code", "Item Code" if language != "fr" else "Code"),
         ("email", "Email"),
-        ("department", "Department" if language != "fr" else "Departement"),
+        ("department", "Department" if language != "fr" else "Département"),
         ("brand", "Brand" if language != "fr" else "Marque"),
-        ("model", "Model" if language != "fr" else "Modele"),
-        ("category", "Category" if language != "fr" else "Categorie"),
+        ("model", "Model" if language != "fr" else "Modèle"),
+        ("category", "Category" if language != "fr" else "Catégorie"),
         ("status", "Status" if language != "fr" else "Statut"),
-        ("quantity", "Quantity" if language != "fr" else "Quantite"),
-        ("available_quantity", "Available" if language != "fr" else "Disponible"),
+        ("quantity", "Quantity" if language != "fr" else "Quantité"),
+        (
+            "available_quantity",
+            "Available" if language != "fr" else "Disponible",
+        ),
         ("location", "Location" if language != "fr" else "Emplacement"),
-        ("overdue_transaction_count", "Overdue Count" if language != "fr" else "Retards"),
-        ("oldest_due_date", "Oldest Due" if language != "fr" else "Echeance"),
-        ("times_borrowed", "Times Borrowed" if language != "fr" else "Fois Empruntee"),
-        ("borrowed_at", "Borrowed At" if language != "fr" else "Emprunte le"),
-        ("due_date", "Due" if language != "fr" else "Echeance"),
+        (
+            "overdue_transaction_count",
+            "Overdue Count" if language != "fr" else "Retards",
+        ),
+        (
+            "oldest_due_date",
+            "Oldest Due" if language != "fr" else "Échéance",
+        ),
+        (
+            "times_borrowed",
+            "Times Borrowed" if language != "fr" else "Fois empruntée",
+        ),
+        ("borrowed_at", "Borrowed At" if language != "fr" else "Emprunté le"),
+        ("due_date", "Due" if language != "fr" else "Échéance"),
     ]
 
     shown = rows[:max_items]
-    lines = []
+    lines: list[str] = []
     for index, row in enumerate(shown, start=1):
         label = row.get(label_key) or "(unnamed)"
         details = [
             f"{display_name}: {row[key]}"
-            for key, display_name in _DISPLAY_FIELDS
+            for key, display_name in display_fields
             if key in row and row[key] is not None
         ]
-        suffix = f" - {', '.join(details)}" if details else ""
+        suffix = f" — {', '.join(details)}" if details else ""
         lines.append(f"{index}. **{label}**{suffix}")
 
-    header = ""
     if len(rows) > max_items:
-        if language == "fr":
-            header = f"Voici les {max_items} premiers sur {len(rows)} resultat(s) :\n\n"
-        else:
-            header = f"Here are the first {max_items} of {len(rows)} result(s):\n\n"
-    elif language == "fr":
-        header = f"Voici les {len(rows)} resultat(s) trouve(s) :\n\n"
+        header = (
+            f"Voici les {max_items} premiers sur {len(rows)} résultat(s) :\n\n"
+            if language == "fr"
+            else f"Here are the first {max_items} of {len(rows)} result(s):\n\n"
+        )
     else:
-        header = f"Here are the {len(rows)} result(s) found:\n\n"
+        header = (
+            f"Voici les {len(rows)} résultat(s) trouvé(s) :\n\n"
+            if language == "fr"
+            else f"Here are the {len(rows)} result(s) found:\n\n"
+        )
 
     return header + "\n".join(lines)
 
 
-def deterministic_data_answer(question: str, rows: list[dict[str, Any]], language: str) -> str | None:
+def _number(value: Any) -> str:
+    """Format a numeric value for a human-facing answer."""
+    if value is None:
+        return "0"
+    try:
+        number = float(value)
+        if number.is_integer():
+            return f"{int(number):,}"
+        return f"{number:,}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def deterministic_data_answer(
+    question: str,
+    rows: list[dict[str, Any]],
+    language: str,
+) -> str | None:
+    """Answer known aggregate results directly from database values.
+
+    This is intentionally deterministic: a failed answer-model call must
+    never turn a valid numeric database result into a misleading list answer.
+    """
     if not rows:
-        if language == "fr":
-            return "Je n'ai trouve aucun enregistrement correspondant a cette recherche. Essayez d'elargir le nom, la marque, la categorie ou la periode."
-        return "I did not find any matching records for that search. Try broadening the name, brand, category, or date range."
+        return None
 
     first = rows[0]
     keys = set(first.keys())
 
-    if {
+    # Semantic planner: total stock quantity + available quantity + item count.
+    if {"total_quantity", "total_available_quantity", "item_records"}.issubset(keys):
+        if language == "fr":
+            return (
+                f"Vous avez actuellement {_number(first['total_quantity'])} unités en stock "
+                f"sur {first['item_records']} référence(s). "
+                f"Dont {_number(first['total_available_quantity'])} unité(s) sont actuellement disponibles."
+            )
+        return (
+            f"You currently have {_number(first['total_quantity'])} units in stock "
+            f"across {first['item_records']} inventory item(s). "
+            f"Of those, {_number(first['total_available_quantity'])} unit(s) are currently available."
+        )
+
+    # Semantic planner: total available quantity + number of item records.
+    if {"total_available_quantity", "item_records"}.issubset(keys):
+        if language == "fr":
+            return (
+                f"Vous avez actuellement {_number(first['total_available_quantity'])} unités disponibles "
+                f"sur {first['item_records']} référence(s) d'inventaire."
+            )
+        return (
+            f"You currently have {_number(first['total_available_quantity'])} available unit(s) "
+            f"across {first['item_records']} inventory item(s)."
+        )
+
+    # Count-only aggregate.
+    if "item_records" in keys and len(keys) == 1:
+        if language == "fr":
+            return f"QStock contient actuellement {first['item_records']} référence(s) d'inventaire."
+        return f"QStock currently has {first['item_records']} inventory item(s)."
+
+    # Inventory dashboard aggregate.
+    dashboard_keys = {
         "item_records",
         "total_quantity",
         "available_quantity",
@@ -229,29 +322,37 @@ def deterministic_data_answer(question: str, rows: list[dict[str, Any]], languag
         "borrowed_records",
         "maintenance_records",
         "retired_records",
-    }.issubset(keys):
+    }
+    if dashboard_keys.issubset(keys):
         if language == "fr":
             return (
                 f"L'inventaire contient {first['item_records']} fiche(s), "
-                f"{first['total_quantity']} unite(s) au total et {first['available_quantity']} disponible(s). "
-                f"Indisponible(s): {first['unavailable_quantity']}. "
-                f"Fiches par statut: {first['available_records']} disponibles, {first['borrowed_records']} empruntees, "
-                f"{first['maintenance_records']} en maintenance, {first['retired_records']} retirees."
+                f"{first['total_quantity']} unité(s) au total et "
+                f"{first['available_quantity']} unité(s) disponibles. "
+                f"Unités indisponibles : {first['unavailable_quantity']}. "
+                f"Statuts : {first['available_records']} disponibles, "
+                f"{first['borrowed_records']} empruntées, "
+                f"{first['maintenance_records']} en maintenance et "
+                f"{first['retired_records']} retirées."
             )
         return (
             f"Inventory has {first['item_records']} item record(s), "
-            f"{first['total_quantity']} total unit(s), and {first['available_quantity']} available unit(s). "
+            f"{first['total_quantity']} total unit(s), and "
+            f"{first['available_quantity']} available unit(s). "
             f"Unavailable units: {first['unavailable_quantity']}. "
-            f"Records by status: {first['available_records']} available, {first['borrowed_records']} borrowed, "
-            f"{first['maintenance_records']} maintenance, {first['retired_records']} retired."
+            f"Statuses: {first['available_records']} available, "
+            f"{first['borrowed_records']} borrowed, "
+            f"{first['maintenance_records']} in maintenance, and "
+            f"{first['retired_records']} retired."
         )
 
+    # Generic inventory summary.
     if {"current_available_inventory", "total_inventory", "unavailable_inventory"}.issubset(keys):
         if language == "fr":
             return (
-                f"Inventaire actuel disponible: {first['current_available_inventory']}. "
-                f"Inventaire total: {first['total_inventory']}. "
-                f"Indisponible: {first['unavailable_inventory']}."
+                f"Inventaire actuellement disponible : {first['current_available_inventory']}. "
+                f"Inventaire total : {first['total_inventory']}. "
+                f"Indisponible : {first['unavailable_inventory']}."
             )
         return (
             f"Current available inventory is {first['current_available_inventory']}. "
@@ -259,40 +360,76 @@ def deterministic_data_answer(question: str, rows: list[dict[str, Any]], languag
             f"Unavailable inventory is {first['unavailable_inventory']}."
         )
 
+    # Maintenance aggregate.
     if {"maintenance_item_records", "maintenance_total_quantity"}.issubset(keys):
         if language == "fr":
-            return f"{first['maintenance_item_records']} fiche(s) sont en maintenance, pour {first['maintenance_total_quantity']} unite(s) au total."
-        return f"{first['maintenance_item_records']} item record(s) are under maintenance, totaling {first['maintenance_total_quantity']} unit(s)."
+            return (
+                f"{first['maintenance_item_records']} fiche(s) sont en maintenance, "
+                f"pour {_number(first['maintenance_total_quantity'])} unité(s) au total."
+            )
+        return (
+            f"{first['maintenance_item_records']} item record(s) are under maintenance, "
+            f"totaling {_number(first['maintenance_total_quantity'])} unit(s)."
+        )
 
     return None
 
 
 def deterministic_general_answer(question: str, language: str) -> str:
+    """Provide deterministic answers for a small set of general QStock topics."""
     text = question.lower()
+
     if language == "fr":
         if "low stock" in text or "faible" in text:
-            return "Dans QStock, un stock faible signifie generalement que la quantite disponible est sous un seuil, par defaut moins de 5 articles si vous ne precisez pas un autre seuil."
+            return (
+                "Dans QStock, un stock faible signifie généralement que la quantité "
+                "disponible est sous un seuil. Si aucun seuil n'est précisé, utilisez "
+                "le seuil configuré par QStock plutôt que de l'inventer."
+            )
         if "status" in text or "statut" in text:
-            return "Les statuts principaux sont available pour les articles disponibles, borrowed pour les articles empruntes, maintenance pour les articles indisponibles en entretien, et retired pour les articles retires."
-        return "Je peux repondre aux questions sur les articles, les quantites disponibles, les emprunts, les retards, les utilisateurs, les demandes et les statistiques d'inventaire."
+            return (
+                "Les statuts principaux de l'inventaire sont available, borrowed, "
+                "maintenance et retired."
+            )
+        return (
+            "Je peux répondre aux questions sur les articles, les quantités, "
+            "les disponibilités, les emprunts, les retards, les utilisateurs, "
+            "les demandes et les statistiques d'inventaire."
+        )
 
     if "low stock" in text:
-        return "In QStock, low stock usually means available quantity is below a threshold. If you do not specify one, I treat low stock as fewer than 5 available."
+        return (
+            "I can identify low-stock inventory using QStock's configured threshold. "
+            "I won't invent a threshold if the application has not configured one."
+        )
     if "status" in text:
-        return "Inventory statuses describe item state: available means usable stock, borrowed means checked out, maintenance means unavailable for repair/service, and retired means no longer active."
-    return "I can answer live inventory questions about items, available quantities, borrowed and overdue transactions, users, requests, categories, low stock, and inventory statistics."
+        return (
+            "QStock inventory statuses include available, borrowed, maintenance, "
+            "and retired."
+        )
+    return (
+        "I can answer live inventory questions about items, quantities, availability, "
+        "borrowed and overdue transactions, users, requests, categories, and inventory statistics."
+    )
 
 
 def can_answer_general_deterministically(question: str) -> bool:
+    """Return whether a general question has a safe deterministic answer."""
     text = question.lower()
     return any(
         phrase in text
         for phrase in (
             "what can you do",
+            "what can you help",
             "help",
             "low stock",
             "inventory status",
             "status mean",
             "explain inventory status",
+            "que peux-tu faire",
+            "que pouvez-vous faire",
+            "aide",
+            "stock faible",
+            "statut inventaire",
         )
     )

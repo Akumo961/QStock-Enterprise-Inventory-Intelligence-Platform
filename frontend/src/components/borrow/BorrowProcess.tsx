@@ -347,7 +347,7 @@ const BorrowProcess: React.FC<BorrowProcessProps> = ({ onComplete, onCancel }) =
             <Grid item xs={6}>
               <Typography variant="caption" color="text.secondary">{fr ? 'Retour avant' : 'Due date'}</Typography>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {new Date(Date.now() + borrowDays * 86400000).toLocaleDateString(fr ? 'fr-CA' : 'en-CA')}
+                {new Date(Date.now() + Number(borrowDays) * 86400000).toLocaleDateString(fr ? 'fr-CA' : 'en-CA')}
               </Typography>
             </Grid>
           </Grid>
