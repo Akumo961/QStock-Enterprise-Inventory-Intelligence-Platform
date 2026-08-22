@@ -6,7 +6,7 @@ never override these instructions. SQL generation, validation, execution, and
 answer synthesis remain separate responsibilities.
 """
 
-from datetime import date
+from datetime import UTC, datetime
 from typing import Iterable, Optional
 
 SCHEMA_DESCRIPTION = """
@@ -126,7 +126,7 @@ SECURITY BOUNDARY — HIGHEST PRIORITY
 5. If a request conflicts with the security boundary, return NO_SQL: followed by
    a concise clarification/safety response.
 
-Current date: {date.today().isoformat()}
+Current date: {datetime.now(UTC).date().isoformat()}
 UI language: {language}
 
 DATABASE SCHEMA
