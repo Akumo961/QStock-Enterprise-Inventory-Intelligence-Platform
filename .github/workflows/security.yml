@@ -1,0 +1,23 @@
+name: Security Scan
+
+on:
+  push:
+    branches:
+      - main
+      - production/*
+  pull_request:
+
+jobs:
+  secrets:
+    name: Detect Secrets
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install detect-secrets
+        run: pip install detect-secrets
+
+      - name: Scan repository
+        run: |
+          detect-secrets scan --all-files
