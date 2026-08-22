@@ -1,0 +1,21 @@
+# QStock backend Ruff configuration.
+# Keep the CI lint gate focused on correctness and maintainability rules
+# that are compatible with FastAPI's dependency-injection style.
+
+line-length = 100
+target-version = "py311"
+
+[lint]
+# Ruff's correctness defaults (E4/E7/E9/F) plus the specific bugbear rule
+# we want to enforce. We intentionally do not enable the entire B/DTZ/SIM/TRY
+# families until the legacy backend has been migrated rule-by-rule.
+extend-select = ["B008"]
+
+[lint.flake8-bugbear]
+# FastAPI intentionally uses Depends()/Query() as callable defaults in route
+# signatures. Treat these framework helpers as immutable calls rather than
+# reporting B008 for every endpoint.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
+
+[format]
+line-ending = "lf"
