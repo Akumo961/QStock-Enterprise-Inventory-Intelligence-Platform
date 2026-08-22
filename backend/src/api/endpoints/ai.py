@@ -9,6 +9,7 @@ from src.ai import memory as conversation_memory
 from src.ai import policy
 from src.ai import service as ai_service
 from src.ai.followup_context import resolve_follow_up
+from src.core.config import settings
 
 router = APIRouter()
 
