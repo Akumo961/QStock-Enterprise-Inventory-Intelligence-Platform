@@ -1,86 +1,155 @@
-# Environment Variables
-.env
-.env.local
-.env.*.local
+# ============================================================
+# QStock Production .gitignore
+# ============================================================
 
+
+# ============================================================
+# Environment Variables / Secrets
+# ============================================================
+
+.env
+.env.*
+!.env.example
+
+secrets/
+credentials/
+*.pem
+*.key
+*.crt
+*.p12
+
+
+# ============================================================
 # Python
+# ============================================================
+
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
+
+# Virtual environments
 venv/
 env/
+.venv/
+QR/
+
+# Packaging
 *.egg-info/
 dist/
 build/
+*.whl
 
-# Node
-node_modules/
-npm-debug.log*
-yarn-error.log*
-dist/
-*.local
+# Python caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
 
-# Uploads & Media
+# ============================================================
+# FastAPI / Backend
+# ============================================================
+
+*.log
+logs/
+
 uploads/
 media/
 static/files/
 
-# Logs
-logs/
-*.log
+*.db
+*.sqlite
+*.sqlite3
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
 
-# Testing
-.coverage
-htmlcov/
-.pytest_cache/
-coverage/
+# ============================================================
+# AI / LLM Local Files
+# ============================================================
 
-# Docker
-.dockerignore
+# Local model files
+models/
+checkpoints/
 
-# Backups
-backups/
-*.backup
-*.bak
+# Evaluation outputs
+evaluation_results/
+eval_results/
 
-# Certificates
-*.pem
-*.key
-*.crt
+# Prompt experiments
+prompt_logs/
 
-# Build outputs
-*.pyc
-*.pyo
+# Vector databases
+vectorstore/
+chroma/
+.faiss/
 
-# Alembic
-alembic/versions/__pycache__/
 
+# ============================================================
 # Frontend
+# ============================================================
+
+node_modules/
+
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
 frontend/build/
 frontend/dist/
 frontend/.cache/
 
-# TypeScript
 *.tsbuildinfo
 
-# Secrets
-secrets/
-credentials/
 
-# Local configuration
-local_settings.py
-config.local.js
+# ============================================================
+# Database / Migration Local Files
+# ============================================================
+
+backups/
+*.backup
+*.bak
+
+alembic/versions/__pycache__/
+
+
+# ============================================================
+# Docker
+# ============================================================
+
+.dockerignore
+
+docker-compose.override.yml
+
+
+# ============================================================
+# IDE
+# ============================================================
+
+.vscode/
+.idea/
+
+*.swp
+*.swo
+
+.DS_Store
+Thumbs.db
+
+
+# ============================================================
+# Temporary Files
+# ============================================================
+
+*.tmp
+*.temp
+*.cache
+
+*.txt
+!README.txt
+
+
+# ============================================================
+# OS
+# ============================================================
+
+.DS_Store
+Thumbs.db
