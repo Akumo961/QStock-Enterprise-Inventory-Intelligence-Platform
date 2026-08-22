@@ -10,6 +10,23 @@ import re
 MAX_MESSAGE_LENGTH = 2000
 _MAX_WHITESPACE_RUN = re.compile(r"[ \t\r\n]+")
 
+
+class EmptyMessageError(ValueError):
+    """Raised when the normalized user message is empty."""
+
+    def __init__(self) -> None:
+        super().__init__("Message cannot be empty.")
+
+
+class MessageTooLongError(ValueError):
+    """Raised when the normalized user message exceeds the configured limit."""
+
+    def __init__(self, length: int, limit: int) -> None:
+        super().__init__(f"Message exceeds the {limit}-character limit.")
+        self.length = length
+        self.limit = limit
+
+
 # High-signal injection phrases. This is intentionally conservative: detection
 # is a safety signal, not a claim that every matching message is malicious.
 _PROMPT_INJECTION_RE = re.compile(
@@ -28,12 +45,12 @@ def normalize_user_message(message: str) -> str:
 
 
 def validate_user_message(message: str) -> str:
-    """Return normalized text or raise ValueError for invalid input."""
+    """Return normalized text or raise a typed exception for invalid input."""
     normalized = normalize_user_message(message)
     if not normalized:
-        raise ValueError("Message cannot be empty.")
+        raise EmptyMessageError()
     if len(normalized) > MAX_MESSAGE_LENGTH:
-        raise ValueError(f"Message exceeds the {MAX_MESSAGE_LENGTH}-character limit.")
+        raise MessageTooLongError(len(normalized), MAX_MESSAGE_LENGTH)
     return normalized
 
 
@@ -45,6 +62,12 @@ def looks_like_prompt_injection(message: str) -> bool:
 def safety_message(language: str = "en") -> str:
     """User-facing response for an instruction-override attempt."""
     if language == "fr":
-        return "Je peux vous aider avec l'inventaire et l'utilisation de QStock, mais je ne peux pas divulguer les instructions internes, secrets ou données protégées."
-    return "I can help with QStock inventory and usage, but I can't disclose internal instructions, secrets, or protected data."
-
+        return (
+            "Je peux vous aider avec l'inventaire et l'utilisation de QStock, "
+            "mais je ne peux pas divulguer les instructions internes, secrets "
+            "ou données protégées."
+        )
+    return (
+        "I can help with QStock inventory and usage, but I can't disclose "
+        "internal instructions, secrets, or protected data."
+    )

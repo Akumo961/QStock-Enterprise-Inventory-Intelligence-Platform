@@ -1,9 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from src.core.config import settings
@@ -18,73 +19,41 @@ security = HTTPBearer()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against a hash"""
+    """Verify a password against a hash."""
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
-    """Hash a password"""
+    """Hash a password."""
     return pwd_context.hash(password)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """
-    Create a JWT access token.
-
-    Args:
-        data: Dictionary containing the payload data
-        expires_delta: Optional expiration time delta
-
-    Returns:
-        Encoded JWT token string
-    """
+    """Create a JWT access token."""
     to_encode = data.copy()
-
+    now = datetime.now(timezone.utc)
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = now + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-
-    return encoded_jwt
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def decode_access_token(token: str) -> Optional[dict]:
-    """
-    Decode and verify a JWT token.
-
-    Args:
-        token: JWT token string
-
-    Returns:
-        Decoded payload dictionary or None if invalid
-    """
+    """Decode and verify a JWT token."""
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        return payload
+        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except JWTError:
         return None
 
 
 async def get_current_user(
-        credentials: HTTPAuthorizationCredentials = Depends(security),
-        db: Session = Depends(get_db)
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
 ) -> User:
-    """
-    Get the current authenticated user from JWT token.
-
-    Args:
-        credentials: HTTP Bearer credentials
-        db: Database session
-
-    Returns:
-        User object
-
-    Raises:
-        HTTPException: If authentication fails
-    """
+    """Get the current authenticated user from a JWT token."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -101,12 +70,11 @@ async def get_current_user(
     if sub is None:
         raise credentials_exception
 
-    # FIX: sub is encoded as str(user.id) in auth.py.
-    # Must convert back to int for the DB query — User.id == "2" never matches.
+    # sub is encoded as str(user.id) in auth.py.
     try:
         user_id = int(sub)
-    except (TypeError, ValueError):
-        raise credentials_exception
+    except (TypeError, ValueError) as exc:
+        raise credentials_exception from exc
 
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
@@ -115,47 +83,26 @@ async def get_current_user(
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive user"
+            detail="Inactive user",
         )
 
     return user
 
 
 async def get_current_admin_user(
-        current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ) -> User:
-    """
-    Verify that the current user is an admin.
-
-    Args:
-        current_user: Current authenticated user
-
-    Returns:
-        User object if admin
-
-    Raises:
-        HTTPException: If user is not an admin
-    """
+    """Verify that the current user is an admin."""
     if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions. Admin access required."
+            detail="Not enough permissions. Admin access required.",
         )
     return current_user
 
 
 def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
-    """
-    Authenticate a user by email and password.
-
-    Args:
-        db: Database session
-        email: User email
-        password: Plain text password
-
-    Returns:
-        User object if authentication successful, None otherwise
-    """
+    """Authenticate a user by email and password."""
     user = db.query(User).filter(User.email == email).first()
     if not user:
         return None
