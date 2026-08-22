@@ -43,8 +43,16 @@ VALID_FORMATS = {"pdf", "excel", "csv"}
 
 def _parse_date_range(start_date: Optional[str], end_date: Optional[str]):
     try:
-        start = datetime.strptime(start_date, "%Y-%m-%d") if start_date else datetime.utcnow() - timedelta(days=30)
-        end = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1) if end_date else datetime.utcnow()
+        start = (
+            datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            if start_date
+            else datetime.now(timezone.utc) - timedelta(days=30)
+        )
+        end = (
+            datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc) + timedelta(days=1)
+            if end_date
+            else datetime.now(timezone.utc)
+        )
     except ValueError:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Dates must be in YYYY-MM-DD format")
     if start > end:
@@ -332,7 +340,7 @@ async def generate_report(
             detail=f"Failed to render {fmt} report: {exc}",
         )
 
-    filename = f"{report_type}_{datetime.utcnow().strftime('%Y%m%d')}.{_EXTENSIONS[fmt]}"
+    filename = f"{report_type}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.{_EXTENSIONS[fmt]}"
     return StreamingResponse(
         io.BytesIO(content),
         media_type=_CONTENT_TYPES[fmt],
