@@ -20,7 +20,7 @@ qrcode[pil]==7.4.2
 Pillow==10.2.0
 
 # Utilities
-python-dotenv==1.0.0
+python-dotenv==1.2.3
 pydantic-settings==2.1.0
 
 # Email (for future notifications)
