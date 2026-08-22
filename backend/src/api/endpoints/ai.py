@@ -28,8 +28,12 @@ async def chat(
     # Phase 7: resolve clearly underspecified follow-ups before the SQL/intent
     # pipeline sees them. The original question is still passed as the display
     # question so the UI and conversation memory preserve what the user typed.
-    max_turns = getattr(settings, "AI_MAX_HISTORY_TURNS", conversation_memory.DEFAULT_MAX_TURNS)
-    history = conversation_memory.get_turn_metadata(current_user.id, max_turns=max_turns)
+    max_turns = getattr(
+        settings, "AI_MAX_HISTORY_TURNS", conversation_memory.DEFAULT_MAX_TURNS
+    )
+    history = conversation_memory.get_turn_metadata(
+        current_user.id, max_turns=max_turns
+    )
     follow_up = resolve_follow_up(question, history)
     query_question = follow_up.resolved_question
 
