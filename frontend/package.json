@@ -34,14 +34,14 @@
     "notistack": "^3.0.2",
     "qrcode": "^1.5.3",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react-dom": "^19.2.8",
     "react-router-dom": "^6.30.3"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",
     "@types/qrcode": "^1.5.5",
     "@types/react": "^18.2.45",
-    "@types/react-dom": "^18.2.18",
+    "@types/react-dom": "^19.2.4",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
     "@vitejs/plugin-basic-ssl": "^1.1.0",
