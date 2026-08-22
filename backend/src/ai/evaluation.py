@@ -18,7 +18,9 @@ from src.ai.intent import classify_intent
 from src.ai.sql_guard import validate_sql
 
 
-DEFAULT_DATASET = Path(__file__).resolve().parents[2] / "tests" / "ai_evaluation" / "dataset.json"
+DEFAULT_DATASET = (
+    Path(__file__).resolve().parents[2] / "tests" / "ai_evaluation" / "dataset.json"
+)
 
 
 @dataclass(frozen=True)
@@ -40,7 +42,7 @@ def load_dataset(path: str | Path = DEFAULT_DATASET) -> list[dict[str, Any]]:
     with Path(path).open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
     if not isinstance(payload, list):
-        raise ValueError("AI evaluation dataset must be a JSON array")
+        raise TypeError("AI evaluation dataset must be a JSON array")
     return payload
 
 
@@ -63,14 +65,18 @@ def evaluate_dataset(path: str | Path = DEFAULT_DATASET) -> EvaluationResult:
             ok = actual == expected
             if not ok:
                 failures.append(
-                    f"{case_id}: intent expected={expected} actual={actual} confidence={result.confidence:.2f}"
+                    f"{case_id}: intent expected={expected} actual={actual} "
+                    f"confidence={result.confidence:.2f}"
                 )
         elif "expected_valid" in case:
             actual, reason = validate_sql(case.get("sql", ""))
             expected = bool(case["expected_valid"])
             ok = actual == expected
             if not ok:
-                failures.append(f"{case_id}: sql_valid expected={expected} actual={actual} reason={reason}")
+                failures.append(
+                    f"{case_id}: sql_valid expected={expected} actual={actual} "
+                    f"reason={reason}"
+                )
         else:
             failures.append(f"{case_id}: unsupported evaluation case")
             ok = False
