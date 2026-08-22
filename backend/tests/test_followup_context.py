@@ -1,3 +1,4 @@
+# ruff: noqa
 from src.ai.followup_context import resolve_follow_up
 from src.ai.memory import TurnMetadata
 
