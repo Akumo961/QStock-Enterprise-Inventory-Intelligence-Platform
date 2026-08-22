@@ -7,7 +7,9 @@ def _history(*questions: str) -> list[TurnMetadata]:
 
 
 def test_quantity_followup_resolves_previous_item():
-    result = resolve_follow_up("How many are available?", _history("Do we have scissors?"))
+    result = resolve_follow_up(
+        "How many are available?", _history("Do we have scissors?")
+    )
     assert result.changed is True
     assert result.item is not None
     assert result.item.canonical_name == "Ciseaux"
@@ -15,13 +17,17 @@ def test_quantity_followup_resolves_previous_item():
 
 
 def test_location_followup_resolves_previous_item():
-    result = resolve_follow_up("Where are they?", _history("Do you have a projector?"))
+    result = resolve_follow_up(
+        "Where are they?", _history("Do you have a projector?")
+    )
     assert result.changed is True
     assert result.resolved_question == "Where is Projecteur?"
 
 
 def test_availability_followup_resolves_previous_item_in_french():
-    result = resolve_follow_up("Sont-ils disponibles ?", _history("Avons-nous des ciseaux ?"))
+    result = resolve_follow_up(
+        "Sont-ils disponibles ?", _history("Avons-nous des ciseaux ?")
+    )
     assert result.changed is True
     assert result.resolved_question == "Le Ciseaux est-il disponible ?"
 
@@ -38,7 +44,9 @@ def test_explicit_item_wins_over_context():
 
 
 def test_unrelated_question_is_not_rewritten():
-    result = resolve_follow_up("What is the weather today?", _history("Do we have scissors?"))
+    result = resolve_follow_up(
+        "What is the weather today?", _history("Do we have scissors?")
+    )
     assert result.changed is False
     assert result.item is None
     assert result.resolved_question == "What is the weather today?"
