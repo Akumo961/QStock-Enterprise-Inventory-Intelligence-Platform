@@ -1,0 +1,7 @@
+# QStock backend Ruff configuration.
+line-length = 100
+target-version = "py311"
+
+[lint.flake8-bugbear]
+# FastAPI intentionally uses Depends()/Query() in route signatures.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
