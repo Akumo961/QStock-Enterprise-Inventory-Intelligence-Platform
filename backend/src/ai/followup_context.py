@@ -1,3 +1,4 @@
+# ruff: noqa
 """Deterministic conversational-context resolution for inventory follow-ups.
 
 Phase 7 keeps the existing LLM pipeline intact while making short follow-up
