@@ -1,15 +1,15 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from src.core.database import get_db
-from src.core.security import get_current_user
-from src.models.user import User
-from src.ai.schemas import ChatRequest, ChatResponse
 from src.ai import memory as conversation_memory
 from src.ai import policy
 from src.ai import service as ai_service
 from src.ai.followup_context import resolve_follow_up
+from src.ai.schemas import ChatRequest, ChatResponse
 from src.core.config import settings
+from src.core.database import get_db
+from src.core.security import get_current_user
+from src.models.user import User
 
 router = APIRouter()
 
