@@ -17,7 +17,6 @@ from typing import Any
 from src.ai.intent import classify_intent
 from src.ai.sql_guard import validate_sql
 
-
 DEFAULT_DATASET = (
     Path(__file__).resolve().parents[2] / "tests" / "ai_evaluation" / "dataset.json"
 )

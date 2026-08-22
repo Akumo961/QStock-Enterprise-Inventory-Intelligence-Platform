@@ -1,10 +1,18 @@
-from pydantic_settings import BaseSettings
-from typing import List, Optional
 import os
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Application settings and configuration."""
+
+    # Pydantic v2 configuration
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore",
+    )
 
     # Application
     APP_NAME: str = "QStock"
@@ -23,7 +31,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = [
+    BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
         "http://localhost:5173",
         "https://localhost:5173",
@@ -80,7 +88,7 @@ class Settings(BaseSettings):
     OPENAI_ANSWER_MODEL: str = ""
 
     # Optional Ollama GPU layer override.
-    OLLAMA_NUM_GPU: Optional[int] = None
+    OLLAMA_NUM_GPU: int | None = None
 
     # Ollama HTTP timeouts.
     OLLAMA_CONNECT_TIMEOUT: float = 30.0
@@ -106,12 +114,6 @@ class Settings(BaseSettings):
     # aggregate timings/counters only, never prompts, SQL, user IDs, or PII.
     AI_METRICS_MAX_SAMPLES: int = 1000
     AI_PERFORMANCE_LOGGING: bool = True
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
-        extra = "ignore"
 
 
 settings = Settings()

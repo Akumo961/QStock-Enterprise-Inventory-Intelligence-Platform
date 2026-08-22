@@ -17,8 +17,8 @@ Supported patterns include:
 - English and French variants
 """
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 from src.ai.entity_resolver import resolve_item
 

@@ -27,45 +27,46 @@ class ResolvedFollowUp:
 
 _FOLLOWUP_PATTERNS = (
     re.compile(
-        r"^how many (?:do we have|are there|do you have)?\s*"
-        r"(?:available|in stock|units?)?\??$",
+        r"^how many(?:\s+(?:do we have|are there|do you have|are available))?\s*\??$",
         re.I,
     ),
     re.compile(
-        r"^(?:how much|what(?:'s| is) the) (?:available|remaining|total)?\s*"
-        r"(?:stock|quantity)?\??$",
+        r"^(?:how much|what(?:'s| is) the)\s*"
+        r"(?:available|remaining|total|stock|quantity)?\s*\??$",
         re.I,
     ),
     re.compile(
-        r"^(?:are|is) (?:they|it|those|these) (?:available|in stock)\??$",
+        r"^(?:are|is)\s+(?:they|it|those|these)\s+"
+        r"(?:available|in stock)\s*\??$",
         re.I,
     ),
     re.compile(
-        r"^(?:where (?:are|is)|where can i find) "
-        r"(?:they|it|those|these)\??$",
+        r"^(?:where\s+(?:are|is)|where can i find)\s+"
+        r"(?:they|it|those|these)\s*\??$",
         re.I,
     ),
     re.compile(
-        r"^(?:what|which) (?:about|of) (?:them|it|those|these)\??$",
+        r"^(?:what|which)\s+(?:about|of)\s+"
+        r"(?:them|it|those|these)\s*\??$",
         re.I,
     ),
     re.compile(
-        r"^(?:and|what about) (?:the )?"
-        r"(?:quantity|availability|location|status)\??$",
+        r"^(?:and|what about)\s+(?:the\s+)?"
+        r"(?:quantity|availability|location|status)\s*\??$",
         re.I,
     ),
     re.compile(
-        r"^(?:combien|quelle quantité) (?:en|de)?\s*"
-        r"(?:reste|restent|sont disponibles|est disponible)\??$",
+        r"^(?:combien|quelle quantité)\s+(?:en|de)?\s*"
+        r"(?:reste|restent|sont disponibles|est disponible)\s*\??$",
         re.I,
     ),
     re.compile(
-        r"^(?:sont-ils|sont elles|est-il|est-elle) "
-        r"(?:disponibles?|en stock)\??$",
+        r"^(?:sont-ils|sont elles|est-il|est-elle)\s+"
+        r"(?:disponibles?|en stock)\s*\??$",
         re.I,
     ),
     re.compile(
-        r"^(?:où|ou) (?:sont|est)-?(?:ils|elles|il|elle)\??$",
+        r"^(?:où|ou)\s+(?:sont|est)-?(?:ils|elles|il|elle)\s*\??$",
         re.I,
     ),
 )

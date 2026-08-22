@@ -1,5 +1,4 @@
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -28,10 +27,10 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """Create a JWT access token."""
     to_encode = data.copy()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if expires_delta:
         expire = now + expires_delta
     else:
@@ -41,7 +40,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def decode_access_token(token: str) -> Optional[dict]:
+def decode_access_token(token: str) -> dict | None:
     """Decode and verify a JWT token."""
     try:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
@@ -101,7 +100,7 @@ async def get_current_admin_user(
     return current_user
 
 
-def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
+def authenticate_user(db: Session, email: str, password: str) -> User | None:
     """Authenticate a user by email and password."""
     user = db.query(User).filter(User.email == email).first()
     if not user:

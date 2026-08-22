@@ -1,33 +1,29 @@
-"""
+﻿"""
 Transaction Management API Endpoints
 Handles borrowing, returning, and employee request operations
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, and_
-from typing import Optional, List
-from datetime import datetime, timedelta
 import math
+from datetime import UTC, datetime, timedelta
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
 
 from src.core.database import get_db
-from src.core.security import get_current_user, get_current_admin_user
 from src.core.qr_generator import qr_generator
-from src.models.user import User
+from src.core.security import get_current_admin_user, get_current_user
 from src.models.item import Item, ItemStatus
-from src.models.transaction import Transaction, TransactionStatus, Request
+from src.models.transaction import Request, Transaction, TransactionStatus
+from src.models.user import User
 from src.schemas.transaction_schema import (
+    RequestCreate,
+    RequestDetailResponse,
+    RequestListResponse,
+    RequestUpdate,
     TransactionCreate,
-    TransactionReturn,
-    TransactionUpdate,
-    TransactionResponse,
     TransactionDetailResponse,
     TransactionListResponse,
-    RequestCreate,
-    RequestUpdate,
-    RequestResponse,
-    RequestDetailResponse,
-    RequestListResponse
+    TransactionReturn,
 )
 
 router = APIRouter(tags=["Transactions"])
@@ -122,11 +118,11 @@ async def borrow_item(
     # Calculate due date
     due_date = None
     if transaction_data.due_days:
-        due_date = datetime.utcnow() + timedelta(days=transaction_data.due_days)
+        due_date = datetime.now(UTC) + timedelta(days=transaction_data.due_days)
     elif item.max_borrow_days:
-        due_date = datetime.utcnow() + timedelta(days=item.max_borrow_days)
+        due_date = datetime.now(UTC) + timedelta(days=item.max_borrow_days)
     else:
-        due_date = datetime.utcnow() + timedelta(days=7)
+        due_date = datetime.now(UTC) + timedelta(days=7)
 
     new_transaction = Transaction(
         user_id=user.id,
@@ -218,7 +214,7 @@ async def return_item(
         )
 
     transaction.status = TransactionStatus.RETURNED
-    transaction.returned_at = datetime.utcnow()
+    transaction.returned_at = datetime.now(UTC)
     transaction.condition_at_return = return_data.condition_at_return or "good"
 
     if return_data.notes:
@@ -265,9 +261,9 @@ async def return_item(
 async def list_transactions(
         page: int = Query(1, ge=1, description="Page number"),
         page_size: int = Query(50, ge=1, le=100, description="Items per page"),
-        status: Optional[TransactionStatus] = Query(None, description="Filter by status"),
-        user_id: Optional[int] = Query(None, description="Filter by user ID (admin only)"),
-        item_id: Optional[int] = Query(None, description="Filter by item ID"),
+        status: TransactionStatus | None = Query(None, description="Filter by status"),
+        user_id: int | None = Query(None, description="Filter by user ID (admin only)"),
+        item_id: int | None = Query(None, description="Filter by item ID"),
         overdue_only: bool = Query(False, description="Show only overdue items"),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
@@ -293,7 +289,7 @@ async def list_transactions(
     if overdue_only:
         query = query.filter(
             Transaction.status == TransactionStatus.BORROWED,
-            Transaction.due_date < datetime.utcnow()
+            Transaction.due_date < datetime.now(UTC)
         )
 
     total = query.count()
@@ -337,7 +333,7 @@ async def list_transactions(
     )
 
 
-@router.get("/my-active", response_model=List[TransactionDetailResponse])
+@router.get("/my-active", response_model=list[TransactionDetailResponse])
 async def get_my_active_borrows(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
@@ -379,7 +375,7 @@ async def get_my_active_borrows(
     return detailed_transactions
 
 
-@router.get("/active-for-item/{item_id}", response_model=List[TransactionDetailResponse])
+@router.get("/active-for-item/{item_id}", response_model=list[TransactionDetailResponse])
 async def get_active_borrows_for_item(
         item_id: int,
         db: Session = Depends(get_db),
@@ -501,9 +497,9 @@ async def create_request(
 async def list_requests(
         page: int = Query(1, ge=1),
         page_size: int = Query(50, ge=1, le=100),
-        status: Optional[str] = Query(None, pattern="^(pending|approved|rejected|completed)$"),
-        priority: Optional[str] = Query(None, pattern="^(low|normal|high|urgent)$"),
-        request_type: Optional[str] = Query(None),
+        status: str | None = Query(None, pattern="^(pending|approved|rejected|completed)$"),
+        priority: str | None = Query(None, pattern="^(low|normal|high|urgent)$"),
+        request_type: str | None = Query(None),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
@@ -638,7 +634,7 @@ async def update_request(
         request.admin_response = request_update.admin_response
 
     request.responded_by_admin_id = current_admin.id
-    request.responded_at = datetime.utcnow()
+    request.responded_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(request)

@@ -11,15 +11,15 @@ Provides comprehensive validation functions for:
 - General input sanitization
 """
 
-import re
-from typing import Optional, List, Union
-from datetime import datetime
 import mimetypes
-
+import re
+import uuid
+from datetime import UTC, datetime
 
 # ============================================================================
 # EMAIL VALIDATION
 # ============================================================================
+
 
 def validate_email(email: str) -> bool:
     """
@@ -47,26 +47,23 @@ def validate_email(email: str) -> bool:
         return False
 
     # RFC 5322 compliant email regex (simplified)
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
 
     if not re.match(pattern, email):
         return False
 
     # Additional checks
-    local_part, domain = email.rsplit('@', 1)
+    local_part, domain = email.rsplit("@", 1)
 
     # Check local part length
     if len(local_part) > 64:
         return False
 
     # Check domain length
-    if len(domain) > 253:
-        return False
-
-    return True
+    return len(domain) <= 253
 
 
-def is_company_email(email: str, allowed_domains: List[str]) -> bool:
+def is_company_email(email: str, allowed_domains: list[str]) -> bool:
     """
     Check if email belongs to allowed company domains.
 
@@ -84,15 +81,16 @@ def is_company_email(email: str, allowed_domains: List[str]) -> bool:
     if not validate_email(email):
         return False
 
-    domain = email.split('@')[1].lower()
-    return domain in [d.lower() for d in allowed_domains]
+    domain = email.split("@")[1].lower()
+    return domain in [domain_name.lower() for domain_name in allowed_domains]
 
 
 # ============================================================================
 # PHONE NUMBER VALIDATION
 # ============================================================================
 
-def validate_phone(phone: str, country_code: Optional[str] = None) -> bool:
+
+def validate_phone(phone: str, country_code: str | None = None) -> bool:
     """
     Validate phone number format.
 
@@ -118,13 +116,10 @@ def validate_phone(phone: str, country_code: Optional[str] = None) -> bool:
         return False
 
     # Remove common separators
-    cleaned = re.sub(r'[\s\-\(\)\.]+', '', phone)
+    cleaned = re.sub(r"[\s\-\(\)\.]+", "", phone)
 
     # Check if it contains only digits and optional + at start
-    if not re.match(r'^\+?[0-9]{8,15}$', cleaned):
-        return False
-
-    return True
+    return bool(re.fullmatch(r"\+?[0-9]{8,15}", cleaned))
 
 
 def normalize_phone(phone: str) -> str:
@@ -142,18 +137,19 @@ def normalize_phone(phone: str) -> str:
         "1234567890"
     """
     # Remove all non-digit characters except +
-    normalized = re.sub(r'[^\d+]', '', phone)
+    normalized = re.sub(r"[^\d+]", "", phone)
 
     # If starts with +, keep it; otherwise just digits
-    if normalized.startswith('+'):
+    if normalized.startswith("+"):
         return normalized
-    else:
-        return normalized.lstrip('+')
+
+    return normalized.lstrip("+")
 
 
 # ============================================================================
 # ITEM CODE VALIDATION
 # ============================================================================
+
 
 def validate_item_code(item_code: str, allow_lowercase: bool = False) -> bool:
     """
@@ -182,9 +178,9 @@ def validate_item_code(item_code: str, allow_lowercase: bool = False) -> bool:
         return False
 
     if allow_lowercase:
-        pattern = r'^[A-Za-z0-9\-_]+$'
+        pattern = r"^[A-Za-z0-9\-_]+$"
     else:
-        pattern = r'^[A-Z0-9\-_]+$'
+        pattern = r"^[A-Z0-9\-_]+$"
 
     return bool(re.match(pattern, item_code))
 
@@ -205,7 +201,6 @@ def generate_item_code(prefix: str = "ITEM", length: int = 8) -> str:
         >>> code.startswith("LAPTOP-")
         True
     """
-    import uuid
     random_part = uuid.uuid4().hex[:length].upper()
     return f"{prefix}-{random_part}"
 
@@ -214,7 +209,10 @@ def generate_item_code(prefix: str = "ITEM", length: int = 8) -> str:
 # PASSWORD VALIDATION
 # ============================================================================
 
-def validate_password(password: str, min_length: int = 8) -> tuple[bool, List[str]]:
+
+def validate_password(
+    password: str, min_length: int = 8
+) -> tuple[bool, list[str]]:
     """
     Validate password strength.
 
@@ -242,25 +240,39 @@ def validate_password(password: str, min_length: int = 8) -> tuple[bool, List[st
     issues = []
 
     if len(password) < min_length:
-        issues.append(f"Password must be at least {min_length} characters long")
+        issues.append(
+            f"Password must be at least {min_length} characters long"
+        )
 
-    if not re.search(r'[A-Z]', password):
+    if not re.search(r"[A-Z]", password):
         issues.append("Password must contain at least one uppercase letter")
 
-    if not re.search(r'[a-z]', password):
+    if not re.search(r"[a-z]", password):
         issues.append("Password must contain at least one lowercase letter")
 
-    if not re.search(r'[0-9]', password):
+    if not re.search(r"[0-9]", password):
         issues.append("Password must contain at least one digit")
 
     if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
-        issues.append("Password should contain at least one special character (recommended)")
+        issues.append(
+            "Password should contain at least one special character "
+            "(recommended)"
+        )
 
     # Check for common weak passwords
     weak_passwords = [
-        'password', 'password123', '12345678', 'qwerty', 'abc123',
-        'letmein', 'welcome', 'monkey', '123456789', 'password1'
+        "password",
+        "password123",
+        "12345678",
+        "qwerty",
+        "abc123",
+        "letmein",
+        "welcome",
+        "monkey",
+        "123456789",
+        "password1",
     ]
+
     if password.lower() in weak_passwords:
         issues.append("Password is too common and easily guessable")
 
@@ -289,21 +301,29 @@ def calculate_password_strength(password: str) -> int:
     score += min(len(password) * 2, 30)
 
     # Character variety (up to 40 points)
-    if re.search(r'[a-z]', password):
+    if re.search(r"[a-z]", password):
         score += 10
-    if re.search(r'[A-Z]', password):
+
+    if re.search(r"[A-Z]", password):
         score += 10
-    if re.search(r'[0-9]', password):
+
+    if re.search(r"[0-9]", password):
         score += 10
+
     if re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
         score += 10
 
     # Complexity bonus (up to 30 points)
     if len(password) >= 12:
         score += 10
-    if len(set(password)) >= len(password) * 0.7:  # Character diversity
+
+    if len(set(password)) >= len(password) * 0.7:
         score += 10
-    if not any(password.lower().startswith(weak) for weak in ['pass', 'admin', 'user']):
+
+    if not any(
+        password.lower().startswith(weak)
+        for weak in ["pass", "admin", "user"]
+    ):
         score += 10
 
     return min(score, 100)
@@ -313,7 +333,10 @@ def calculate_password_strength(password: str) -> int:
 # QR CODE VALIDATION
 # ============================================================================
 
-def validate_qr_code_data(qr_data: str, expected_type: Optional[str] = None) -> bool:
+
+def validate_qr_code_data(
+    qr_data: str, expected_type: str | None = None
+) -> bool:
     """
     Validate QR code data format.
 
@@ -334,17 +357,17 @@ def validate_qr_code_data(qr_data: str, expected_type: Optional[str] = None) -> 
         >>> validate_qr_code_data("ITEM:5:ITEM-ABC123")
         True
     """
-    if not qr_data or ':' not in qr_data:
+    if not qr_data or ":" not in qr_data:
         return False
 
-    parts = qr_data.split(':')
+    parts = qr_data.split(":")
 
     if len(parts) < 3:
         return False
 
     qr_type = parts[0].upper()
 
-    if qr_type not in ['USER', 'ITEM']:
+    if qr_type not in ["USER", "ITEM"]:
         return False
 
     if expected_type and qr_type != expected_type.upper():
@@ -357,9 +380,10 @@ def validate_qr_code_data(qr_data: str, expected_type: Optional[str] = None) -> 
         return False
 
     # Validate third part
-    if qr_type == 'USER':
+    if qr_type == "USER":
         return validate_email(parts[2])
-    elif qr_type == 'ITEM':
+
+    if qr_type == "ITEM":
         return validate_item_code(parts[2], allow_lowercase=True)
 
     return True
@@ -369,11 +393,12 @@ def validate_qr_code_data(qr_data: str, expected_type: Optional[str] = None) -> 
 # STRING SANITIZATION
 # ============================================================================
 
+
 def sanitize_string(
-        text: str,
-        max_length: Optional[int] = None,
-        allow_newlines: bool = False,
-        strip_html: bool = True
+    text: str,
+    max_length: int | None = None,
+    allow_newlines: bool = False,
+    strip_html: bool = True,
 ) -> str:
     """
     Sanitize string input.
@@ -403,17 +428,17 @@ def sanitize_string(
 
     # Strip HTML tags if requested
     if strip_html:
-        text = re.sub(r'<[^>]+>', '', text)
+        text = re.sub(r"<[^>]+>", "", text)
 
     # Remove leading/trailing whitespace
     text = text.strip()
 
     # Handle newlines
     if not allow_newlines:
-        text = text.replace('\n', ' ').replace('\r', ' ')
+        text = text.replace("\n", " ").replace("\r", " ")
 
     # Replace multiple spaces with single space
-    text = re.sub(r' +', ' ', text)
+    text = re.sub(r" +", " ", text)
 
     # Truncate if needed
     if max_length and len(text) > max_length:
@@ -438,28 +463,35 @@ def sanitize_filename(filename: str, max_length: int = 255) -> str:
         "My_File.txt"
     """
     # Remove path separators
-    filename = filename.replace('/', '_').replace('\\', '_')
+    filename = filename.replace("/", "_").replace("\\", "_")
 
     # Remove or replace unsafe characters
-    filename = re.sub(r'[^\w\s\-\.]', '_', filename)
+    filename = re.sub(r"[^\w\s\-.]", "_", filename)
 
     # Replace multiple underscores/spaces with single underscore
-    filename = re.sub(r'[_\s]+', '_', filename)
+    filename = re.sub(r"[_\s]+", "_", filename)
 
     # Ensure it's not too long
     if len(filename) > max_length:
-        name, ext = filename.rsplit('.', 1) if '.' in filename else (filename, '')
-        name = name[:max_length - len(ext) - 1]
+        name, ext = (
+            filename.rsplit(".", 1)
+            if "." in filename
+            else (filename, "")
+        )
+        name = name[: max_length - len(ext) - 1]
         filename = f"{name}.{ext}" if ext else name
 
-    return filename.strip('_')
+    return filename.strip("_")
 
 
 # ============================================================================
 # FILE VALIDATION
 # ============================================================================
 
-def validate_file_extension(filename: str, allowed_extensions: List[str]) -> bool:
+
+def validate_file_extension(
+    filename: str, allowed_extensions: list[str]
+) -> bool:
     """
     Validate file extension.
 
@@ -474,18 +506,23 @@ def validate_file_extension(filename: str, allowed_extensions: List[str]) -> boo
         >>> validate_file_extension("image.png", [".png", ".jpg"])
         True
     """
-    if not filename or '.' not in filename:
+    if not filename or "." not in filename:
         return False
 
-    ext = filename.rsplit('.', 1)[1].lower()
+    ext = filename.rsplit(".", 1)[1].lower()
 
     # Normalize allowed extensions
-    normalized = [e.lstrip('.').lower() for e in allowed_extensions]
+    normalized = [
+        extension.lstrip(".").lower()
+        for extension in allowed_extensions
+    ]
 
     return ext in normalized
 
 
-def validate_file_size(size_bytes: int, max_size_mb: float = 5.0) -> bool:
+def validate_file_size(
+    size_bytes: int, max_size_mb: float = 5.0
+) -> bool:
     """
     Validate file size.
 
@@ -497,14 +534,14 @@ def validate_file_size(size_bytes: int, max_size_mb: float = 5.0) -> bool:
         True if size is within limit
 
     Example:
-        >>> validate_file_size(1024 * 1024, 5.0)  # 1MB file, 5MB limit
+        >>> validate_file_size(1024 * 1024, 5.0)
         True
     """
     max_size_bytes = max_size_mb * 1024 * 1024
     return size_bytes <= max_size_bytes
 
 
-def get_safe_mime_type(filename: str) -> Optional[str]:
+def get_safe_mime_type(filename: str) -> str | None:
     """
     Get safe MIME type for a filename.
 
@@ -526,7 +563,10 @@ def get_safe_mime_type(filename: str) -> Optional[str]:
 # DATE/TIME VALIDATION
 # ============================================================================
 
-def validate_date_string(date_str: str, format_str: str = "%Y-%m-%d") -> bool:
+
+def validate_date_string(
+    date_str: str, format_str: str = "%Y-%m-%d"
+) -> bool:
     """
     Validate date string format.
 
@@ -544,7 +584,7 @@ def validate_date_string(date_str: str, format_str: str = "%Y-%m-%d") -> bool:
         True
     """
     try:
-        datetime.strptime(date_str, format_str)
+        datetime.strptime(date_str, format_str).replace(tzinfo=UTC)
         return True
     except ValueError:
         return False
@@ -568,7 +608,8 @@ def validate_date_range(start_date: datetime, end_date: datetime) -> bool:
 # NUMERIC VALIDATION
 # ============================================================================
 
-def validate_positive_integer(value: Union[int, str]) -> bool:
+
+def validate_positive_integer(value: int | str) -> bool:
     """
     Validate positive integer.
 
@@ -591,7 +632,9 @@ def validate_positive_integer(value: Union[int, str]) -> bool:
         return False
 
 
-def validate_quantity(quantity: int, min_val: int = 1, max_val: int = 1000) -> bool:
+def validate_quantity(
+    quantity: int, min_val: int = 1, max_val: int = 1000
+) -> bool:
     """
     Validate quantity value.
 
@@ -610,7 +653,10 @@ def validate_quantity(quantity: int, min_val: int = 1, max_val: int = 1000) -> b
 # GENERAL VALIDATORS
 # ============================================================================
 
-def is_safe_string(text: str, allow_special_chars: bool = False) -> bool:
+
+def is_safe_string(
+    text: str, allow_special_chars: bool = False
+) -> bool:
     """
     Check if string contains only safe characters.
 
@@ -622,9 +668,9 @@ def is_safe_string(text: str, allow_special_chars: bool = False) -> bool:
         True if safe
     """
     if allow_special_chars:
-        pattern = r'^[a-zA-Z0-9\s\-_.,!?@#$%&*()]+$'
+        pattern = r"^[a-zA-Z0-9\s\-_. ,!?@#$%&*()]+$"
     else:
-        pattern = r'^[a-zA-Z0-9\s\-_]+$'
+        pattern = r"^[a-zA-Z0-9\s\-_]+$"
 
     return bool(re.match(pattern, text))
 
@@ -644,11 +690,13 @@ def validate_url(url: str) -> bool:
         True
     """
     pattern = re.compile(
-        r'^https?://'  # http:// or https://
-        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
-        r'localhost|'  # localhost...
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
-        r'(?::\d+)?'  # optional port
-        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+        r"^https?://"
+        r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"
+        r"localhost|"
+        r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1})"
+        r"(?::\d+)?"
+        r"(?:/?|[/?]\S+)$",
+        re.IGNORECASE,
+    )
 
     return bool(pattern.match(url))

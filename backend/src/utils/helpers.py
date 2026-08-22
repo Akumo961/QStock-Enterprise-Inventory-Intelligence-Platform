@@ -1,4 +1,4 @@
-"""
+﻿"""
 Helper Utilities for QR Inventory System
 
 Provides utility functions for:
@@ -10,13 +10,11 @@ Provides utility functions for:
 - Data transformations
 """
 
-from datetime import datetime, timedelta, date
-from typing import Optional, Union, List, Dict, Any, TypeVar, Generic
-import json
 import csv
-import io
-from enum import Enum
 import hashlib
+import io
+from datetime import UTC, datetime, timedelta
+from typing import Any, Generic, TypeVar
 
 # Type variable for generic pagination
 T = TypeVar('T')
@@ -28,7 +26,7 @@ T = TypeVar('T')
 
 def calculate_days_between(
         start_date: datetime,
-        end_date: Optional[datetime] = None
+        end_date: datetime | None = None
 ) -> int:
     """
     Calculate the number of days between two dates.
@@ -48,13 +46,13 @@ def calculate_days_between(
         7
     """
     if end_date is None:
-        end_date = datetime.utcnow()
+        end_date = datetime.now(UTC)
 
     delta = end_date - start_date
     return delta.days
 
 
-def is_overdue(due_date: Optional[datetime]) -> bool:
+def is_overdue(due_date: datetime | None) -> bool:
     """
     Check if a due date has passed.
 
@@ -66,17 +64,17 @@ def is_overdue(due_date: Optional[datetime]) -> bool:
 
     Example:
         >>> from datetime import datetime, timedelta
-        >>> past_date = datetime.utcnow() - timedelta(days=1)
+        >>> past_date = datetime.now(UTC) - timedelta(days=1)
         >>> is_overdue(past_date)
         True
     """
     if due_date is None:
         return False
 
-    return datetime.utcnow() > due_date
+    return datetime.now(UTC) > due_date
 
 
-def days_until_due(due_date: Optional[datetime]) -> Optional[int]:
+def days_until_due(due_date: datetime | None) -> int | None:
     """
     Calculate days until due date.
 
@@ -88,20 +86,20 @@ def days_until_due(due_date: Optional[datetime]) -> Optional[int]:
 
     Example:
         >>> from datetime import datetime, timedelta
-        >>> future = datetime.utcnow() + timedelta(days=5)
+        >>> future = datetime.now(UTC) + timedelta(days=5)
         >>> days_until_due(future)
         5
     """
     if due_date is None:
         return None
 
-    delta = due_date - datetime.utcnow()
+    delta = due_date - datetime.now(UTC)
     return delta.days
 
 
 def format_duration(
         start_date: datetime,
-        end_date: Optional[datetime] = None,
+        end_date: datetime | None = None,
         short_format: bool = False
 ) -> str:
     """
@@ -117,7 +115,7 @@ def format_duration(
 
     Examples:
         >>> from datetime import datetime, timedelta
-        >>> start = datetime.utcnow() - timedelta(days=3)
+        >>> start = datetime.now(UTC) - timedelta(days=3)
         >>> format_duration(start)
         "3 days"
         >>> format_duration(start, short_format=True)
@@ -180,7 +178,7 @@ def format_datetime(
 
 def get_date_range(
         range_type: str,
-        start_date: Optional[datetime] = None
+        start_date: datetime | None = None
 ) -> tuple[datetime, datetime]:
     """
     Get date range for common periods.
@@ -198,7 +196,7 @@ def get_date_range(
         7
     """
     if start_date is None:
-        start_date = datetime.utcnow()
+        start_date = datetime.now(UTC)
 
     ranges = {
         "today": timedelta(days=1),
@@ -397,7 +395,7 @@ class PaginatedResponse(Generic[T]):
 
     def __init__(
             self,
-            items: List[T],
+            items: list[T],
             total: int,
             page: int,
             page_size: int
@@ -439,7 +437,7 @@ def generate_filename(
     extension = extension.lstrip('.')
 
     if timestamp:
-        timestamp_str = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp_str = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         return f"{prefix}_{timestamp_str}.{extension}"
     else:
         import uuid
@@ -465,7 +463,7 @@ def generate_report_filename(report_type: str, extension: str = "pdf") -> str:
     return generate_filename(f"{report_type}_report", extension, timestamp=True)
 
 
-def read_csv_to_dict(csv_content: str) -> List[Dict[str, Any]]:
+def read_csv_to_dict(csv_content: str) -> list[dict[str, Any]]:
     """
     Parse CSV content to list of dictionaries.
 
@@ -479,7 +477,7 @@ def read_csv_to_dict(csv_content: str) -> List[Dict[str, Any]]:
     return list(reader)
 
 
-def dict_to_csv(data: List[Dict[str, Any]]) -> str:
+def dict_to_csv(data: list[dict[str, Any]]) -> str:
     """
     Convert list of dictionaries to CSV string.
 
@@ -553,10 +551,10 @@ def generate_unique_id(prefix: str = "", length: int = 16) -> str:
 # ============================================================================
 
 def flatten_dict(
-        d: Dict[str, Any],
+        d: dict[str, Any],
         parent_key: str = '',
         separator: str = '_'
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Flatten nested dictionary.
 
@@ -586,7 +584,7 @@ def flatten_dict(
 
 
 def safe_get(
-        dictionary: Dict[str, Any],
+        dictionary: dict[str, Any],
         key_path: str,
         default: Any = None,
         separator: str = '.'
@@ -622,7 +620,7 @@ def safe_get(
     return value
 
 
-def group_by(items: List[Dict[str, Any]], key: str) -> Dict[Any, List[Dict[str, Any]]]:
+def group_by(items: list[dict[str, Any]], key: str) -> dict[Any, list[dict[str, Any]]]:
     """
     Group list of dictionaries by key.
 
@@ -653,7 +651,7 @@ def group_by(items: List[Dict[str, Any]], key: str) -> Dict[Any, List[Dict[str, 
 # UTILITY HELPERS
 # ============================================================================
 
-def chunk_list(lst: List[Any], chunk_size: int) -> List[List[Any]]:
+def chunk_list(lst: list[Any], chunk_size: int) -> list[list[Any]]:
     """
     Split list into chunks.
 
@@ -671,7 +669,7 @@ def chunk_list(lst: List[Any], chunk_size: int) -> List[List[Any]]:
     return [lst[i:i + chunk_size] for i in range(0, len(lst), chunk_size)]
 
 
-def deduplicate_list(lst: List[Any], key: Optional[str] = None) -> List[Any]:
+def deduplicate_list(lst: list[Any], key: str | None = None) -> list[Any]:
     """
     Remove duplicates from list.
 
@@ -699,7 +697,7 @@ def deduplicate_list(lst: List[Any], key: Optional[str] = None) -> List[Any]:
         return list(dict.fromkeys(lst))
 
 
-def percentage(part: Union[int, float], total: Union[int, float], precision: int = 2) -> float:
+def percentage(part: float, total: float, precision: int = 2) -> float:
     """
     Calculate percentage.
 
@@ -721,7 +719,7 @@ def percentage(part: Union[int, float], total: Union[int, float], precision: int
     return round((part / total) * 100, precision)
 
 
-def clamp(value: Union[int, float], min_val: Union[int, float], max_val: Union[int, float]) -> Union[int, float]:
+def clamp(value: float, min_val: float, max_val: float) -> int | float:
     """
     Clamp value between min and max.
 

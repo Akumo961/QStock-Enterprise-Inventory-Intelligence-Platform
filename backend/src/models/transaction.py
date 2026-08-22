@@ -36,18 +36,19 @@ from enum import Enum
 
 from sqlalchemy import (
     Column,
-    String,
-    Integer,
-    ForeignKey,
     DateTime,
+    ForeignKey,
+    Integer,
+    String,
     Text,
+)
+from sqlalchemy import (
     Enum as SQLEnum,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from src.models.base import BaseModel
-
 
 # =============================================================================
 # ENUMS

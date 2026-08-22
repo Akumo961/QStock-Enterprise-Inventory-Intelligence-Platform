@@ -1,4 +1,4 @@
-"""
+﻿"""
 ORDERS SECTION — Drop these routes into transactions.py
 Place ALL /requests routes BEFORE the /{transaction_id} route to avoid 403.
 
@@ -8,19 +8,21 @@ Required model fields on the Request model (add if missing):
   ready_date  = Column(DateTime(timezone=True), nullable=True)
 """
 
-from datetime import datetime
-from typing import Optional
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from src.core.database import get_db
-from src.core.security import get_current_user, get_current_admin_user
-from src.models.user import User
+from src.core.security import get_current_admin_user, get_current_user
 from src.models.item import Item
 from src.models.transaction import Request
+from src.models.user import User
 from src.schemas.transaction_schema import (
-    RequestCreate, RequestUpdate,
-    RequestDetailResponse, RequestListResponse,
+    RequestCreate,
+    RequestDetailResponse,
+    RequestListResponse,
+    RequestUpdate,
 )
 
 router = APIRouter(tags=["Orders"])
@@ -28,7 +30,7 @@ router = APIRouter(tags=["Orders"])
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-def _build_response(req: Request, db: Session, admin_name: Optional[str] = None) -> RequestDetailResponse:
+def _build_response(req: Request, db: Session, admin_name: str | None = None) -> RequestDetailResponse:
     """Build a full RequestDetailResponse from a Request ORM object."""
     user = db.query(User).filter(User.id == req.user_id).first()
     item = db.query(Item).filter(Item.id == req.item_id).first() if req.item_id else None
@@ -117,7 +119,7 @@ async def create_request(
 async def list_my_requests(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    status_filter: Optional[str] = Query(None, alias="status"),
+    status_filter: str | None = Query(None, alias="status"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -189,11 +191,11 @@ async def cancel_request(
 async def list_all_requests(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    status_filter: Optional[str] = Query(None, alias="status",
+    status_filter: str | None = Query(None, alias="status",
                                           description="pending|approved|rejected|ready"),
-    request_type: Optional[str] = Query(None),
-    user_id: Optional[int] = Query(None, description="Filter by specific user"),
-    search: Optional[str] = Query(None, description="Search by user name or order title"),
+    request_type: str | None = Query(None),
+    user_id: int | None = Query(None, description="Filter by specific user"),
+    search: str | None = Query(None, description="Search by user name or order title"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),  # admin check below
 ):
@@ -294,7 +296,7 @@ async def update_request(
         req.ready_date = update.ready_date
 
     req.responded_by_admin_id = current_admin.id
-    req.responded_at = datetime.utcnow()
+    req.responded_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(req)
@@ -315,4 +317,4 @@ async def delete_request(
     req = _get_or_404(db, request_id)
     db.delete(req)
     db.commit()
-    return None
+

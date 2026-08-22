@@ -1,25 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from typing import Optional
 import math
 import uuid
 
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
 from src.core.database import get_db
-from src.core.security import get_current_user, get_current_admin_user
 from src.core.qr_generator import qr_generator
-from src.models.user import User
-from src.models.item import Item, ItemStatus, ItemCategory
-from src.models.transaction import Transaction
+from src.core.security import get_current_admin_user, get_current_user
+from src.models.item import Item, ItemCategory, ItemStatus
 from src.models.review import Review
+from src.models.transaction import Transaction
+from src.models.user import User
 from src.schemas.item_schema import (
+    ItemAvailability,
     ItemCreate,
-    ItemUpdate,
-    ItemResponse,
     ItemListResponse,
     ItemQRCode,
+    ItemResponse,
     ItemStats,
-    ItemAvailability
+    ItemUpdate,
 )
 
 router = APIRouter( tags=["Items"])
@@ -124,10 +124,10 @@ async def create_item(
 async def list_items(
         page: int = Query(1, ge=1),
         page_size: int = Query(50, ge=1, le=100),
-        search: Optional[str] = None,
-        category: Optional[ItemCategory] = None,
-        status: Optional[ItemStatus] = None,
-        is_borrowable: Optional[bool] = None,
+        search: str | None = None,
+        category: ItemCategory | None = None,
+        status: ItemStatus | None = None,
+        is_borrowable: bool | None = None,
         available_only: bool = False,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)

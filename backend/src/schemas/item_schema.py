@@ -1,25 +1,26 @@
-from pydantic import BaseModel, Field, ConfigDict, field_validator
-from typing import Optional
 from datetime import datetime
-from src.models.item import ItemStatus, ItemCategory
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from src.models.item import ItemCategory, ItemStatus
 
 
 class ItemBase(BaseModel):
     """Base item schema with common fields"""
     name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = None
+    description: str | None = None
     category: ItemCategory = ItemCategory.OTHER
-    serial_number: Optional[str] = Field(None, max_length=100)
-    brand: Optional[str] = Field(None, max_length=100)
-    model: Optional[str] = Field(None, max_length=100)
-    purchase_date: Optional[str] = None
-    location: Optional[str] = Field(None, max_length=255)
+    serial_number: str | None = Field(None, max_length=100)
+    brand: str | None = Field(None, max_length=100)
+    model: str | None = Field(None, max_length=100)
+    purchase_date: str | None = None
+    location: str | None = Field(None, max_length=255)
     quantity: int = Field(default=1, ge=1)
     is_borrowable: bool = True
     requires_approval: bool = False
-    max_borrow_days: Optional[int] = Field(default=7, ge=1)
-    notes: Optional[str] = None
-    image_url: Optional[str] = None
+    max_borrow_days: int | None = Field(default=7, ge=1)
+    notes: str | None = None
+    image_url: str | None = None
 
     # Accept both "OTHER" and "other" from frontend — normalise to lowercase
     @field_validator('category', mode='before')
@@ -32,8 +33,8 @@ class ItemBase(BaseModel):
 
 class ItemCreate(ItemBase):
     """Schema for creating a new item"""
-    item_code: Optional[str] = Field(None, max_length=100)
-    available_quantity: Optional[int] = Field(
+    item_code: str | None = Field(None, max_length=100)
+    available_quantity: int | None = Field(
         None, ge=0,
         description="How many of `quantity` are available right now. Defaults to the full quantity if omitted. Cannot exceed quantity.",
     )
@@ -41,22 +42,22 @@ class ItemCreate(ItemBase):
 
 class ItemUpdate(BaseModel):
     """Schema for updating an item — item_code excluded (read-only after creation)"""
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = None
-    category: Optional[ItemCategory] = None
-    status: Optional[ItemStatus] = None
-    serial_number: Optional[str] = Field(None, max_length=100)
-    brand: Optional[str] = Field(None, max_length=100)
-    model: Optional[str] = Field(None, max_length=100)
-    purchase_date: Optional[str] = None
-    location: Optional[str] = Field(None, max_length=255)
-    quantity: Optional[int] = Field(None, ge=1)
-    available_quantity: Optional[int] = Field(None, ge=0)
-    is_borrowable: Optional[bool] = None
-    requires_approval: Optional[bool] = None
-    max_borrow_days: Optional[int] = Field(None, ge=1)
-    notes: Optional[str] = None
-    image_url: Optional[str] = None
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    category: ItemCategory | None = None
+    status: ItemStatus | None = None
+    serial_number: str | None = Field(None, max_length=100)
+    brand: str | None = Field(None, max_length=100)
+    model: str | None = Field(None, max_length=100)
+    purchase_date: str | None = None
+    location: str | None = Field(None, max_length=255)
+    quantity: int | None = Field(None, ge=1)
+    available_quantity: int | None = Field(None, ge=0)
+    is_borrowable: bool | None = None
+    requires_approval: bool | None = None
+    max_borrow_days: int | None = Field(None, ge=1)
+    notes: str | None = None
+    image_url: str | None = None
 
     @field_validator('category', mode='before')
     @classmethod
@@ -80,7 +81,7 @@ class ItemResponse(ItemBase):
     id: int
     item_code: str
     qr_code_data: str
-    qr_code_image: Optional[str] = None
+    qr_code_image: str | None = None
     status: ItemStatus
     available_quantity: int
     created_at: datetime
@@ -112,7 +113,7 @@ class ItemStats(BaseModel):
     total_borrows: int
     current_borrowed: int
     total_returns: int
-    average_rating: Optional[float] = None
+    average_rating: float | None = None
     total_reviews: int
     times_reported: int
 
@@ -133,4 +134,4 @@ class ItemAvailability(BaseModel):
     available_quantity: int
     total_quantity: int
     status: ItemStatus
-    next_available_date: Optional[datetime] = None
+    next_available_date: datetime | None = None

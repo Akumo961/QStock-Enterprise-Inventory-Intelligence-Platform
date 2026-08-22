@@ -1,9 +1,9 @@
 """LLM SQL generation with validation-aware retries."""
 
-from dataclasses import dataclass
 import logging
 import re
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from src.ai.prompts import build_system_prompt, build_user_prompt
@@ -11,7 +11,6 @@ from src.ai.query_planner import plan_inventory_query
 from src.ai.query_templates import maybe_build_template_sql
 from src.ai.sql_guard import validate_sql
 from src.core.config import settings
-
 
 logger = logging.getLogger(__name__)
 

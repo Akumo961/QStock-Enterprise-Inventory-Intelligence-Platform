@@ -6,42 +6,30 @@ All models inherit from the Base class and include automatic timestamps.
 """
 
 from src.models.base import BaseModel
-from src.models.user import User
-from src.models.item import Item, ItemStatus, ItemCategory
+from src.models.item import Item, ItemCategory, ItemStatus
+from src.models.review import Review
 from src.models.transaction import (
-    Transaction,
-    TransactionStatus,
     Order,
     OrderStatus,
+    Transaction,
+    TransactionStatus,
 )
-from src.models.review import Review
+from src.models.user import User
 
-# Export all models for easy importing
 __all__ = [
-    # Base
     "BaseModel",
-
-    # User model
-    "User",
-
-    # Item model and enums
     "Item",
-    "ItemStatus",
     "ItemCategory",
-
-    # Transaction models and enums
-    "Transaction",
-    "TransactionStatus",
-
-    # Orders
+    "ItemStatus",
     "Order",
     "OrderStatus",
-
-    # Review model
     "Review",
+    "Transaction",
+    "TransactionStatus",
+    "User",
 ]
 
-# Model registry for migrations and database initialization
+# Model registry for migrations and database initialization.
 MODELS = [
     User,
     Item,

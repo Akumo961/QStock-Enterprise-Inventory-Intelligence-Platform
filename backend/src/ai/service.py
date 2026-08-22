@@ -16,7 +16,6 @@ import logging
 import re
 import time
 from abc import ABC, abstractmethod
-from typing import Optional
 
 import httpx
 from sqlalchemy.orm import Session
@@ -36,7 +35,6 @@ from src.ai.schemas import ChatResponse
 from src.ai.sql_executor import SQLExecutor, preview_rows
 from src.ai.sql_generator import SQLGenerator
 from src.core.config import settings
-
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +104,7 @@ class OllamaProvider(AIProvider):
         self,
         base_url: str = "http://localhost:11434",
         model: str = "phi3:mini",
-        num_gpu: Optional[int] = None,
+        num_gpu: int | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
@@ -175,7 +173,7 @@ class OpenAIProvider(AIProvider):
         messages: list[dict[str, str]],
         max_tokens: int = 100,
         temperature: float = 0.0,
-        num_ctx: int = 2048,  # noqa: ARG002
+        num_ctx: int = 2048,
     ) -> str:
         payload = {
             "model": self.model,
@@ -200,7 +198,7 @@ class OpenAIProvider(AIProvider):
         return response.json()["choices"][0]["message"]["content"]
 
 
-def get_provider(role: str = "sql") -> Optional[AIProvider]:
+def get_provider(role: str = "sql") -> AIProvider | None:
     """Return the configured AI provider for SQL or answer generation."""
     openai_key = (getattr(settings, "OPENAI_API_KEY", "") or "").strip()
     if openai_key:
@@ -258,7 +256,7 @@ def handle_chat(
     user_message: str,
     requesting_user_id: int,
     language: str = "en",
-    display_question: Optional[str] = None,
+    display_question: str | None = None,
 ) -> ChatResponse:
     """Main AI assistant pipeline used by the FastAPI endpoint."""
     language = language if language in ("en", "fr") else "en"
@@ -606,7 +604,7 @@ def _remember_turn(
         logger.exception("Failed to update conversation memory for user %d", user_id)
 
 
-def _log(user_id: int, question: str, sql: Optional[str], started_at: float, intent: str) -> None:
+def _log(user_id: int, question: str, sql: str | None, started_at: float, intent: str) -> None:
     elapsed = round(time.time() - started_at, 3)
     logger.info(
         "AI_AUDIT | user_id=%d | intent=%s | elapsed=%.3fs | sql=%s | question=%r",

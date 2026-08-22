@@ -1,7 +1,8 @@
-import qrcode
-from io import BytesIO
 import base64
-from typing import Optional
+from io import BytesIO
+
+import qrcode
+
 from src.core.config import settings
 
 
@@ -146,7 +147,7 @@ class QRCodeGenerator:
         return f"ITEM:{item_id}:{item_code}"
 
     @staticmethod
-    def parse_qr_data(qr_data: str) -> Optional[dict]:
+    def parse_qr_data(qr_data: str) -> dict | None:
         """
         Parse QR code data string.
 

@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
+
 from src.core.config import settings
 
 # Create database engine
@@ -9,11 +9,17 @@ engine = create_engine(
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=10,
-    max_overflow=20
+    max_overflow=20,
 )
 
+
 # Create session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+)
+
 
 # Create base class for models
 Base = declarative_base()
@@ -36,9 +42,4 @@ def init_db():
     Initialize database tables.
     Creates all tables defined in models.
     """
-    import src.models.user
-    import src.models.item
-    import src.models.transaction
-    import src.models.review
-
     Base.metadata.create_all(bind=engine)

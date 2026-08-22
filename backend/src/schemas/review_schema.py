@@ -1,30 +1,30 @@
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
 from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ReviewBase(BaseModel):
     """Base review schemas"""
-    rating: Optional[int] = Field(None, ge=1, le=5)
-    comment: Optional[str] = None
+    rating: int | None = Field(None, ge=1, le=5)
+    comment: str | None = None
     has_issue: bool = False
-    issue_type: Optional[str] = Field(None, max_length=100)
-    issue_description: Optional[str] = None
-    issue_severity: Optional[str] = Field(None, pattern="^(minor|moderate|severe)$")
+    issue_type: str | None = Field(None, max_length=100)
+    issue_description: str | None = None
+    issue_severity: str | None = Field(None, pattern="^(minor|moderate|severe)$")
 
 
 class ReviewCreate(ReviewBase):
     """Schema for creating a new review"""
     item_id: int
-    transaction_id: Optional[int] = None
+    transaction_id: int | None = None
 
 
 class ReviewUpdate(BaseModel):
     """Schema for updating a review"""
-    rating: Optional[int] = Field(None, ge=1, le=5)
-    comment: Optional[str] = None
-    admin_response: Optional[str] = None
-    issue_resolved: Optional[bool] = None
+    rating: int | None = Field(None, ge=1, le=5)
+    comment: str | None = None
+    admin_response: str | None = None
+    issue_resolved: bool | None = None
 
 
 class ReviewResponse(BaseModel):
@@ -34,15 +34,15 @@ class ReviewResponse(BaseModel):
     id: int
     user_id: int
     item_id: int
-    transaction_id: Optional[int] = None
-    rating: Optional[int] = None
-    comment: Optional[str] = None
+    transaction_id: int | None = None
+    rating: int | None = None
+    comment: str | None = None
     has_issue: bool
-    issue_type: Optional[str] = None
-    issue_description: Optional[str] = None
-    issue_severity: Optional[str] = None
+    issue_type: str | None = None
+    issue_description: str | None = None
+    issue_severity: str | None = None
     admin_notified: bool
-    admin_response: Optional[str] = None
+    admin_response: str | None = None
     issue_resolved: bool
     created_at: datetime
     updated_at: datetime

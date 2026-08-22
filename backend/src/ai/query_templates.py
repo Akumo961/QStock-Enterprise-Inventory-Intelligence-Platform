@@ -1,7 +1,7 @@
 """Deterministic SQL templates for common QStock inventory questions."""
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
