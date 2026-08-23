@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # Database
     # Keep the URL configurable through the environment so credentials are
     # never committed to source control.
-    DATABASE_URL: str = "postgresql://qr_user@localhost:5432/qr_inventory"
+    DATABASE_URL: str
 
     # Security - no production secret is stored in source control.
     SECRET_KEY: str
