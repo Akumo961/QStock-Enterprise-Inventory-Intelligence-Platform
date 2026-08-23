@@ -1,4 +1,4 @@
-"""
+﻿"""
 Reports endpoint — generates real downloadable files (PDF / Excel / CSV)
 for the admin Reports page.
 
@@ -13,12 +13,12 @@ Report types (match frontend/src/components/admin/Reports.tsx exactly):
 
 import csv
 import io
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.core.database import get_db
@@ -41,14 +41,33 @@ VALID_REPORT_TYPES = {
 VALID_FORMATS = {"pdf", "excel", "csv"}
 
 
-def _parse_date_range(start_date: Optional[str], end_date: Optional[str]):
+def _parse_date_range(start_date: str | None, end_date: str | None):
     try:
-        start = datetime.strptime(start_date, "%Y-%m-%d") if start_date else datetime.utcnow() - timedelta(days=30)
-        end = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1) if end_date else datetime.utcnow()
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Dates must be in YYYY-MM-DD format")
+        start = (
+            datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=UTC)
+            if start_date
+            else datetime.now(UTC) - timedelta(days=30)
+        )
+
+        end = (
+            datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=UTC)
+            + timedelta(days=1)
+            if end_date
+            else datetime.now(UTC)
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Dates must be in YYYY-MM-DD format",
+        ) from exc
+
     if start > end:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="start_date must be before end_date")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="start_date must be before end_date",
+        )
+
     return start, end
 
 
@@ -69,7 +88,7 @@ def _build_user_activity(db: Session, start, end):
         borrows = len(txns)
         returns = sum(1 for t in txns if t.status == TransactionStatus.RETURNED)
         active = sum(1 for t in txns if t.status == TransactionStatus.BORROWED)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         overdue = sum(
             1 for t in txns
             if t.status == TransactionStatus.BORROWED and t.due_date and t.due_date < now
@@ -115,7 +134,7 @@ def _build_transaction_history(db: Session, start, end):
 
 def _build_overdue_items(db: Session, start, end):
     headers = ["Item", "User", "Borrowed At", "Due Date", "Days Overdue"]
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     txns = db.query(Transaction).filter(
         Transaction.status == TransactionStatus.BORROWED,
         Transaction.due_date < now,
@@ -242,10 +261,10 @@ def _render_excel(headers, rows, title: str) -> bytes:
 
 def _render_pdf(headers, rows, title: str, date_range_label: str) -> bytes:
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import letter, landscape
-    from reportlab.lib.units import inch
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.pagesizes import landscape, letter
     from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(letter), topMargin=0.5 * inch, bottomMargin=0.5 * inch)
@@ -288,8 +307,8 @@ _EXTENSIONS = {"csv": "csv", "excel": "xlsx", "pdf": "pdf"}
 async def generate_report(
         report_type: str = Query(...),
         format: str = Query(...),
-        start_date: Optional[str] = Query(None),
-        end_date: Optional[str] = Query(None),
+        start_date: str | None = Query(None),
+        end_date: str | None = Query(None),
         db: Session = Depends(get_db),
         current_admin: User = Depends(get_current_admin_user),
 ):
@@ -310,11 +329,12 @@ async def generate_report(
 
     try:
         headers, rows = _BUILDERS[report_type](db, start, end)
-    except Exception as exc:
+
+    except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to build report data: {exc}",
-        )
+            detail="Database error while building report data",
+        ) from exc
 
     title = report_type.replace("_", " ").title()
     date_label = f"{start.strftime('%Y-%m-%d')} to {(end - timedelta(days=1)).strftime('%Y-%m-%d')}"
@@ -322,17 +342,23 @@ async def generate_report(
     try:
         if fmt == "csv":
             content = _render_csv(headers, rows)
+
         elif fmt == "excel":
             content = _render_excel(headers, rows, title)
+
         else:
             content = _render_pdf(headers, rows, title, date_label)
-    except Exception as exc:
+
+    except (ValueError, OSError) as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to render {fmt} report: {exc}",
-        )
+            detail=f"Failed to render {fmt} report",
+        ) from exc
 
-    filename = f"{report_type}_{datetime.utcnow().strftime('%Y%m%d')}.{_EXTENSIONS[fmt]}"
+    filename = (
+        f"{report_type}_{datetime.now(UTC).strftime('%Y%m%d')}"
+        f".{_EXTENSIONS[fmt]}"
+    )
     return StreamingResponse(
         io.BytesIO(content),
         media_type=_CONTENT_TYPES[fmt],

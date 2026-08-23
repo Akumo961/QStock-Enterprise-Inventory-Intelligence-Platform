@@ -10,7 +10,7 @@ __description__ = "QR Code Inventory Management System Backend"
 
 # Package metadata
 __all__ = [
-    "__version__",
     "__author__",
     "__description__",
+    "__version__",
 ]

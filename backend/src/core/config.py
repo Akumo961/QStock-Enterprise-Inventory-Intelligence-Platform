@@ -1,6 +1,6 @@
-from pydantic_settings import BaseSettings
-from typing import List, Optional
 import os
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # Database
     # Keep the URL configurable through the environment so credentials are
     # never committed to source control.
-    DATABASE_URL: str = "postgresql://qr_user@localhost:5432/qr_inventory"
+    DATABASE_URL: str
 
     # Security - no production secret is stored in source control.
     SECRET_KEY: str
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = [
+    BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
         "http://localhost:5173",
         "https://localhost:5173",
@@ -54,8 +54,8 @@ class Settings(BaseSettings):
     MAIL_SSL: bool = False
 
     # Initial admin setup - credentials must come from the environment.
-    INITIAL_ADMIN_EMAIL: str = ""
-    INITIAL_ADMIN_PASSWORD: str = ""
+    INITIAL_ADMIN_EMAIL: str
+    INITIAL_ADMIN_PASSWORD: str
     INITIAL_ADMIN_NAME: str = "System Administrator"
     INITIAL_ADMIN_PHONE: str = ""
 
@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     OPENAI_ANSWER_MODEL: str = ""
 
     # Optional Ollama GPU layer override.
-    OLLAMA_NUM_GPU: Optional[int] = None
+    OLLAMA_NUM_GPU: int | None = None
 
     # Ollama HTTP timeouts.
     OLLAMA_CONNECT_TIMEOUT: float = 30.0
@@ -107,11 +107,12 @@ class Settings(BaseSettings):
     AI_METRICS_MAX_SAMPLES: int = 1000
     AI_PERFORMANCE_LOGGING: bool = True
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore",
+    )
 
 
 settings = Settings()

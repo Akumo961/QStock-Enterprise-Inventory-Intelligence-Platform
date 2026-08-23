@@ -6,9 +6,9 @@ The rules cover both English and French because the product supports both UI
 languages.
 """
 
+import re
 from dataclasses import dataclass
 from enum import Enum
-import re
 
 
 class Intent(str, Enum):

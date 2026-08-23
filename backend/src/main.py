@@ -1,187 +1,461 @@
 """
-Main FastAPI application for QR Code Inventory Management System
+QStock - QR Inventory Management System
+Main FastAPI application
 """
-from fastapi import FastAPI, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+
+import logging
 from contextlib import asynccontextmanager
 
+from fastapi import FastAPI, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+
+from src.api.endpoints.ai import router as ai_router
+from src.api.endpoints.auth import router as auth_router
+from src.api.endpoints.dashboard import router as dashboard_router
+from src.api.endpoints.items import router as items_router
+from src.api.endpoints.orders import router as orders_router
+from src.api.endpoints.reports import router as reports_router
+from src.api.endpoints.reviews import router as reviews_router
+from src.api.endpoints.transactions import router as transactions_router
+from src.api.endpoints.users import router as users_router
 from src.core.config import settings
-from src.core.database import init_db, get_db, engine
-from src.core.security import get_password_hash
+from src.core.database import engine, get_db, init_db
 from src.core.qr_generator import qr_generator
+from src.core.security import get_password_hash
 from src.models.user import User
 
-# Importer les routers directement depuis leurs fichiers
-from src.api.endpoints.auth import router as auth_router
-from src.api.endpoints.users import router as users_router
-from src.api.endpoints.items import router as items_router
-from src.api.endpoints.transactions import router as transactions_router
-from src.api.endpoints.orders import router as orders_router
-from src.api.endpoints.dashboard import router as dashboard_router
-from src.api.endpoints.reviews import router as reviews_router
-from src.api.endpoints.ai import router as ai_router
-from src.api.endpoints.reports import router as reports_router
+logger = logging.getLogger(__name__)
+
+# ============================================================
+# STARTUP / SHUTDOWN
+# ============================================================
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Lifespan context manager for startup and shutdown events.
-    """
-    # Startup
-    print("🚀 Starting QR Inventory System API...")
 
-    # Initialize database
-    print("📦 Initializing database...")
-    init_db()
+    print("🚀 Starting QStock API...")
 
-    # Create initial admin user if doesn't exist
-    print("👤 Checking for initial admin user...")
-    db = next(get_db())
+    # -------------------------
+    # Database initialization
+    # -------------------------
+
     try:
-        admin = db.query(User).filter(User.email == settings.INITIAL_ADMIN_EMAIL).first()
-        if not admin:
-            print("🔧 Creating initial admin user...")
-            hashed_password = get_password_hash(settings.INITIAL_ADMIN_PASSWORD)
+        print("📦 Initializing database...")
+        init_db()
 
-            admin = User(
-                email=settings.INITIAL_ADMIN_EMAIL,
-                full_name=settings.INITIAL_ADMIN_NAME,
-                hashed_password=hashed_password,
-                phone=settings.INITIAL_ADMIN_PHONE,
-                is_admin=True,
-                is_active=True,
-                qr_code_data="temp"
+
+    except SQLAlchemyError:
+
+        logger.exception(
+
+            "Database initialization failed"
+        )
+
+
+    # -------------------------
+    # Initial admin creation
+    # -------------------------
+
+    print("👤 Checking initial administrator...")
+
+
+    db = next(get_db())
+
+
+    try:
+
+        if not settings.INITIAL_ADMIN_EMAIL:
+
+            print(
+                "⚠️ INITIAL_ADMIN_EMAIL missing. "
+                "Skipping admin creation."
             )
 
-            db.add(admin)
-            db.commit()
-            db.refresh(admin)
 
-            # Generate QR code
-            qr_code_data = qr_generator.generate_user_qr_data(admin.id, admin.email)
-            qr_code_image = qr_generator.generate_qr_code_base64(qr_code_data)
-
-            admin.qr_code_data = qr_code_data
-            admin.qr_code_image = qr_code_image
-
-            db.commit()
-            print(f"✅ Initial admin created: {settings.INITIAL_ADMIN_EMAIL}")
-            print(f"⚠️  Default password: {settings.INITIAL_ADMIN_PASSWORD}")
-            print("⚠️  Please change the password after first login!")
         else:
-            print("✅ Admin user already exists")
+
+            existing_admin = (
+                db.query(User)
+                .filter(
+                    User.email ==
+                    settings.INITIAL_ADMIN_EMAIL
+                )
+                .first()
+            )
+
+
+            if existing_admin:
+
+                print(
+                    f"✅ Admin already exists: "
+                    f"{existing_admin.email}"
+                )
+
+
+            else:
+
+                print("🔧 Creating initial admin...")
+
+
+                admin = User(
+
+                    email=settings.INITIAL_ADMIN_EMAIL,
+
+                    full_name=settings.INITIAL_ADMIN_NAME,
+
+                    hashed_password=
+                        get_password_hash(
+                            settings.INITIAL_ADMIN_PASSWORD
+                        ),
+
+                    phone=settings.INITIAL_ADMIN_PHONE,
+
+                    is_admin=True,
+
+                    is_active=True,
+
+                    # Temporary valid unique value
+                    qr_code_data=
+                        f"INITIAL-{settings.INITIAL_ADMIN_EMAIL}",
+
+                    qr_code_image=""
+
+                )
+
+
+                db.add(admin)
+
+                db.commit()
+
+                db.refresh(admin)
+
+
+
+                # Generate final QR
+                qr_data = (
+                    qr_generator
+                    .generate_user_qr_data(
+                        admin.id,
+                        admin.email
+                    )
+                )
+
+
+                qr_image = (
+                    qr_generator
+                    .generate_qr_code_base64(
+                        qr_data
+                    )
+                )
+
+
+                admin.qr_code_data = qr_data
+
+                admin.qr_code_image = qr_image
+
+
+                db.commit()
+
+
+                print(
+                    "✅ Initial admin created successfully"
+                )
+
+                print(
+                    f"📧 Email: "
+                    f"{settings.INITIAL_ADMIN_EMAIL}"
+                )
+
+                print(
+                    "🔑 Initial admin password configured"
+                )
+
+
+
+    except SQLAlchemyError:
+
+        db.rollback()
+
+        logger.exception(
+
+            "Admin setup failed"
+
+        )
+
+
     finally:
+
         db.close()
 
-    print("✅ Application startup complete!")
+
+
+    print("✅ QStock startup completed")
+
 
     yield
 
-    # Shutdown
-    print("👋 Shutting down QR Inventory System API...")
 
 
-# Create FastAPI application
+    print("👋 QStock shutdown")
+
+
+
+
+
+# ============================================================
+# FASTAPI APPLICATION
+# ============================================================
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="QR Code-based Inventory Management System for employee borrowing and tracking",
+
+    description=(
+        """
+        QStock Inventory Intelligence Platform.
+        QR-based inventory management with AI assistant.
+        """
+    ),
+
     lifespan=lifespan,
+
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json"
 )
 
-# Configure CORS
+
+# ============================================================
+# CORS
+# ============================================================
+
+
 app.add_middleware(
+
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+
+    allow_origins=
+        settings.BACKEND_CORS_ORIGINS,
+
     allow_credentials=True,
+
     allow_methods=["*"],
+
     allow_headers=["*"],
+
 )
 
 
-# Health check endpoint
-@app.get("/", tags=["Health"])
+
+
+
+# ============================================================
+# HEALTH
+# ============================================================
+
+
+@app.get("/")
 async def root():
-    """Root endpoint - health check"""
-    return {
-        "status": "healthy",
-        "app_name": settings.APP_NAME,
-        "version": settings.APP_VERSION,
-        "environment": settings.ENVIRONMENT
-    }
-
-
-@app.get("/health", tags=["Health"])
-async def health_check():
-    """Detailed health check"""
-    try:
-        # Check database connection
-        from sqlalchemy import text
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-
-        db_status = "connected"
-    except Exception as e:
-        db_status = f"error: {str(e)}"
 
     return {
+
         "status": "healthy",
-        "database": db_status,
-        "app_name": settings.APP_NAME,
+
+        "app": settings.APP_NAME,
+
         "version": settings.APP_VERSION
+
     }
 
 
-# Include routers - avec préfixes clairs
-app.include_router(auth_router,         prefix="/api/auth",         tags=["Authentication"])
-app.include_router(users_router,        prefix="/api/users",        tags=["Users"])
-app.include_router(items_router,        prefix="/api/items",        tags=["Items"])
-app.include_router(transactions_router, prefix="/api/transactions",  tags=["Transactions"])
-app.include_router(orders_router,       prefix="/api/orders",        tags=["Orders"])
-app.include_router(dashboard_router,    prefix="/api/dashboard",     tags=["Dashboard"])
-app.include_router(reviews_router,      prefix="/api/reviews",       tags=["Reviews"])
-app.include_router(ai_router,           prefix="/api/ai",            tags=["AI Assistant"])
-app.include_router(reports_router,      prefix="/api/reports",       tags=["Reports"])
 
 
-# Global exception handler
+@app.get("/health")
+async def health_check():
+
+    try:
+
+        with engine.connect() as conn:
+
+            conn.execute(
+                text("SELECT 1")
+            )
+
+
+        database="connected"
+
+
+    except SQLAlchemyError:
+
+        database="error"
+
+
+
+    return {
+
+        "status":"healthy",
+
+        "database":database,
+
+        "app_name":
+            settings.APP_NAME,
+
+        "version":
+            settings.APP_VERSION
+
+    }
+
+
+
+
+
+# ============================================================
+# ROUTERS
+# ============================================================
+
+
+app.include_router(
+    auth_router,
+    prefix="/api/auth",
+    tags=["Authentication"]
+)
+
+
+app.include_router(
+    users_router,
+    prefix="/api/users",
+    tags=["Users"]
+)
+
+
+app.include_router(
+    items_router,
+    prefix="/api/items",
+    tags=["Items"]
+)
+
+
+app.include_router(
+    transactions_router,
+    prefix="/api/transactions",
+    tags=["Transactions"]
+)
+
+
+app.include_router(
+    orders_router,
+    prefix="/api/orders",
+    tags=["Orders"]
+)
+
+
+app.include_router(
+    dashboard_router,
+    prefix="/api/dashboard",
+    tags=["Dashboard"]
+)
+
+
+app.include_router(
+    reviews_router,
+    prefix="/api/reviews",
+    tags=["Reviews"]
+)
+
+
+app.include_router(
+    ai_router,
+    prefix="/api/ai",
+    tags=["AI Assistant"]
+)
+
+
+app.include_router(
+    reports_router,
+    prefix="/api/reports",
+    tags=["Reports"]
+)
+
+
+
+
+
+# ============================================================
+# ERRORS
+# ============================================================
+
+
 @app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    """Handle all uncaught exceptions"""
+async def global_exception_handler(
+    request,
+    exc
+):
+
     return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+
+        status_code=
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+
         content={
-            "detail": "Internal server error",
-            "error": str(exc) if settings.DEBUG else "An error occurred"
+
+            "detail":
+                "Internal server error",
+
+            "error":
+                str(exc)
+                if settings.DEBUG
+                else None
+
         }
+
     )
 
 
-# Custom 404 handler
+
+
 @app.exception_handler(404)
-async def not_found_handler(request, exc):
-    """Handle 404 errors"""
+async def not_found_handler(
+    request,
+    exc
+):
+
     return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND,
-        content={"detail": "Resource not found"}
+
+        status_code=404,
+
+        content={
+            "detail":
+                "Resource not found"
+        }
+
     )
+
+
+
+
+
+# ============================================================
+# LOCAL RUN
+# ============================================================
 
 
 if __name__ == "__main__":
+
     import uvicorn
 
-    print(f"🌐 Starting {settings.APP_NAME} v{settings.APP_VERSION}")
-    print(f"📍 Environment: {settings.ENVIRONMENT}")
-    print(f"🔧 Debug mode: {settings.DEBUG}")
 
     uvicorn.run(
+
         "src.main:app",
+
         host="0.0.0.0",
+
         port=8000,
-        reload=settings.DEBUG,
-        log_level="info"
+
+        reload=settings.DEBUG
+
     )

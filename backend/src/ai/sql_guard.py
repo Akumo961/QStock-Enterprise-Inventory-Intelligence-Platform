@@ -16,8 +16,6 @@ execution attempt.  It is intentionally conservative: when in doubt, reject.
 """
 
 import re
-from typing import Tuple
-
 
 # ---------------------------------------------------------------------------
 # Banned keyword patterns
@@ -89,7 +87,7 @@ _TABLE_REFERENCE_RE = re.compile(r"\b(?:FROM|JOIN)\s+([a-zA-Z_][a-zA-Z0-9_]*)\b"
 _ALLOWED_TABLES = {"items", "users", "transactions", "requests"}
 
 
-def validate_sql(sql: str) -> Tuple[bool, str]:
+def validate_sql(sql: str) -> tuple[bool, str]:
     """
     Validate a SQL string.
 

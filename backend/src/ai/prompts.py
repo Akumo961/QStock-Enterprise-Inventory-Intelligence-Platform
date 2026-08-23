@@ -6,8 +6,8 @@ never override these instructions. SQL generation, validation, execution, and
 answer synthesis remain separate responsibilities.
 """
 
-from datetime import date
-from typing import Iterable, Optional
+from collections.abc import Iterable
+from datetime import UTC, datetime
 
 SCHEMA_DESCRIPTION = """
 TABLE items (PK: id) — one row per inventory item/asset type.
@@ -102,7 +102,7 @@ def _format_history(history: Iterable[tuple[str, str]]) -> str:
     return "\n".join(lines) if lines else "No previous turns."
 
 
-def build_system_prompt(language: str = "en", retry_reason: Optional[str] = None) -> str:
+def build_system_prompt(language: str = "en", retry_reason: str | None = None) -> str:
     retry_block = ""
     if retry_reason:
         retry_block = f"""
@@ -126,7 +126,7 @@ SECURITY BOUNDARY — HIGHEST PRIORITY
 5. If a request conflicts with the security boundary, return NO_SQL: followed by
    a concise clarification/safety response.
 
-Current date: {date.today().isoformat()}
+Current date: {datetime.now(UTC).date().isoformat()}
 UI language: {language}
 
 DATABASE SCHEMA

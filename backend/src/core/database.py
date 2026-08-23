@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
+
 from src.core.config import settings
 
 # Create database engine
@@ -36,9 +36,5 @@ def init_db():
     Initialize database tables.
     Creates all tables defined in models.
     """
-    import src.models.user
-    import src.models.item
-    import src.models.transaction
-    import src.models.review
 
     Base.metadata.create_all(bind=engine)

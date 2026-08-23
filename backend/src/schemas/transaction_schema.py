@@ -18,14 +18,13 @@ admin borrow-to-user and multi-item return workflows.
 """
 
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.models.transaction import (
-    TransactionStatus,
     OrderStatus,
     OrderType,
+    TransactionStatus,
 )
 
 # =============================================================================
@@ -34,13 +33,13 @@ from src.models.transaction import (
 
 class TransactionBase(BaseModel):
     quantity: int = Field(default=1, ge=1)
-    purpose: Optional[str] = None
-    notes: Optional[str] = None
+    purpose: str | None = None
+    notes: str | None = None
 
 
 class TransactionCreate(TransactionBase):
     # Optional: omit to borrow for self; provide to borrow on behalf of another user (admin only)
-    user_qr_code: Optional[str] = Field(
+    user_qr_code: str | None = Field(
         None,
         description="User QR code data. Omit to borrow for self."
     )
@@ -50,7 +49,7 @@ class TransactionCreate(TransactionBase):
         description="Item QR code data"
     )
 
-    due_days: Optional[int] = Field(
+    due_days: int | None = Field(
         None,
         ge=1
     )
@@ -59,18 +58,18 @@ class TransactionCreate(TransactionBase):
 class TransactionReturn(BaseModel):
     transaction_id: int
 
-    condition_at_return: Optional[str] = Field(
+    condition_at_return: str | None = Field(
         None,
         max_length=50
     )
 
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class TransactionUpdate(BaseModel):
-    status: Optional[TransactionStatus] = None
-    due_date: Optional[datetime] = None
-    notes: Optional[str] = None
+    status: TransactionStatus | None = None
+    due_date: datetime | None = None
+    notes: str | None = None
 
 
 class TransactionResponse(BaseModel):
@@ -86,17 +85,17 @@ class TransactionResponse(BaseModel):
 
     borrowed_at: datetime
 
-    due_date: Optional[datetime] = None
+    due_date: datetime | None = None
 
-    returned_at: Optional[datetime] = None
+    returned_at: datetime | None = None
 
-    purpose: Optional[str] = None
+    purpose: str | None = None
 
-    notes: Optional[str] = None
+    notes: str | None = None
 
-    condition_at_borrow: Optional[str] = None
+    condition_at_borrow: str | None = None
 
-    condition_at_return: Optional[str] = None
+    condition_at_return: str | None = None
 
     created_at: datetime
     updated_at: datetime
@@ -111,7 +110,7 @@ class TransactionDetailResponse(TransactionResponse):
 
 
 class TransactionListResponse(BaseModel):
-    transactions: List[TransactionDetailResponse]
+    transactions: list[TransactionDetailResponse]
 
     total: int
     page: int
@@ -134,7 +133,7 @@ class QRBorrowRequest(BaseModel):
         user_qr_code provided (borrow for another user)
     """
 
-    user_qr_code: Optional[str] = Field(
+    user_qr_code: str | None = Field(
         None,
         description="Omit to borrow for self"
     )
@@ -146,9 +145,9 @@ class QRBorrowRequest(BaseModel):
         ge=1
     )
 
-    purpose: Optional[str] = None
+    purpose: str | None = None
 
-    due_days: Optional[int] = Field(
+    due_days: int | None = Field(
         None,
         ge=1
     )
@@ -165,13 +164,13 @@ class QRBulkBorrowRequest(BaseModel):
 
     user_qr_code: str
 
-    item_qr_codes: List[str] = Field(
+    item_qr_codes: list[str] = Field(
         min_length=1
     )
 
-    purpose: Optional[str] = None
+    purpose: str | None = None
 
-    due_days: Optional[int] = Field(
+    due_days: int | None = Field(
         None,
         ge=1
     )
@@ -190,17 +189,17 @@ class QRReturnRequest(BaseModel):
 
     item_qr_code: str
 
-    user_qr_code: Optional[str] = Field(
+    user_qr_code: str | None = Field(
         None,
         description="Omit to return your own item"
     )
 
-    condition_at_return: Optional[str] = Field(
+    condition_at_return: str | None = Field(
         default="good",
         max_length=50
     )
 
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class QRBulkReturnRequest(BaseModel):
@@ -214,16 +213,16 @@ class QRBulkReturnRequest(BaseModel):
 
     user_qr_code: str
 
-    item_qr_codes: List[str] = Field(
+    item_qr_codes: list[str] = Field(
         min_length=1
     )
 
-    condition_at_return: Optional[str] = Field(
+    condition_at_return: str | None = Field(
         default="good",
         max_length=50
     )
 
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 # =============================================================================
@@ -253,14 +252,14 @@ class OrderCreate(BaseModel):
         min_length=1
     )
 
-    title: Optional[str] = Field(
+    title: str | None = Field(
         None,
         max_length=255
     )
 
-    item_id: Optional[int] = None
+    item_id: int | None = None
 
-    needed_date: Optional[datetime] = None
+    needed_date: datetime | None = None
 
 
 class OrderUpdate(BaseModel):
@@ -268,14 +267,14 @@ class OrderUpdate(BaseModel):
     Admin updates order.
     """
 
-    status: Optional[OrderStatus] = None
+    status: OrderStatus | None = None
 
-    admin_response: Optional[str] = Field(
+    admin_response: str | None = Field(
         None,
         max_length=1000
     )
 
-    ready_date: Optional[datetime] = None
+    ready_date: datetime | None = None
 
 
 class OrderResponse(BaseModel):
@@ -287,23 +286,23 @@ class OrderResponse(BaseModel):
 
     order_type: OrderType
 
-    title: Optional[str] = None
+    title: str | None = None
 
     description: str
 
-    item_id: Optional[int] = None
+    item_id: int | None = None
 
-    needed_date: Optional[datetime] = None
+    needed_date: datetime | None = None
 
-    ready_date: Optional[datetime] = None
+    ready_date: datetime | None = None
 
     status: OrderStatus
 
-    admin_response: Optional[str] = None
+    admin_response: str | None = None
 
-    responded_by_admin_id: Optional[int] = None
+    responded_by_admin_id: int | None = None
 
-    responded_at: Optional[datetime] = None
+    responded_at: datetime | None = None
 
     created_at: datetime
 
@@ -314,15 +313,15 @@ class OrderResponse(BaseModel):
 
     user_email: str = ""
 
-    user_employee_id: Optional[str] = None
+    user_employee_id: str | None = None
 
-    item_name: Optional[str] = None
+    item_name: str | None = None
 
-    admin_name: Optional[str] = None
+    admin_name: str | None = None
 
 
 class OrderListResponse(BaseModel):
-    orders: List[OrderResponse]
+    orders: list[OrderResponse]
 
     total: int
 

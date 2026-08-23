@@ -7,7 +7,6 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-
 logger = logging.getLogger(__name__)
 
 MAX_ROWS = 100
