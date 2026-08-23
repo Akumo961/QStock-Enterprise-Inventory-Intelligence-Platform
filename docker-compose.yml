@@ -11,10 +11,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
 
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-    ports:
-      - "5432:5432"
+      - postgres_data:/var/lib/postgresql/date
 
     networks:
       - qr-network
@@ -57,10 +54,22 @@ services:
       - ./backend/uploads:/app/uploads
 
     ports:
-      - "8000:8000"
+      - "8000"
 
     networks:
       - qr-network
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:8000/health"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 
   frontend:
@@ -72,13 +81,27 @@ services:
     restart: unless-stopped
 
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
     ports:
       - "80:80"
 
     networks:
       - qr-network
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://localhost"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 
 networks:
