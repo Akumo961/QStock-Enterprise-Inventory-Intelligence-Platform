@@ -24,8 +24,7 @@ Order Statuses:
     ready
 """
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from fastapi import (
     APIRouter,
@@ -39,23 +38,21 @@ from sqlalchemy.orm import Session
 
 from src.core.database import get_db
 from src.core.security import (
-    get_current_user,
     get_current_admin_user,
+    get_current_user,
 )
-
-from src.models.user import User
 from src.models.item import Item
 from src.models.transaction import (
     Order,
     OrderStatus,
     OrderType,
 )
-
+from src.models.user import User
 from src.schemas.transaction_schema import (
     OrderCreate,
-    OrderUpdate,
-    OrderResponse,
     OrderListResponse,
+    OrderResponse,
+    OrderUpdate,
 )
 
 router = APIRouter(tags=["Orders"])
@@ -195,7 +192,7 @@ async def create_order(
 async def list_my_orders(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    status_filter: Optional[OrderStatus] = Query(
+    status_filter: OrderStatus | None = Query(
         None,
         alias="status",
     ),
@@ -273,13 +270,13 @@ async def cancel_order(
 async def list_orders(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    status_filter: Optional[OrderStatus] = Query(
+    status_filter: OrderStatus | None = Query(
         None,
         alias="status",
     ),
-    order_type: Optional[OrderType] = Query(None),
-    user_id: Optional[int] = Query(None),
-    search: Optional[str] = Query(None),
+    order_type: OrderType | None = Query(None),
+    user_id: int | None = Query(None),
+    search: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -382,7 +379,7 @@ async def update_order(
         order.ready_date = data.ready_date
 
     order.responded_by_admin_id = current_admin.id
-    order.responded_at = datetime.now(timezone.utc)
+    order.responded_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(order)
@@ -406,4 +403,3 @@ async def delete_order(
     db.delete(order)
     db.commit()
 
-    return None

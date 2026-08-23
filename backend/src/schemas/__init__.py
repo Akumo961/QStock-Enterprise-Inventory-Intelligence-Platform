@@ -8,69 +8,63 @@ Contains all Pydantic models for request/response validation.
 # USER SCHEMAS
 # ============================================================================
 
-from src.schemas.user_schema import (
-    UserBase,
-    UserCreate,
-    UserUpdate,
-    UserChangePassword,
-    UserResponse,
-    UserQRCode,
-    UserListResponse,
-    UserStats,
-)
-
 # ============================================================================
 # ITEM SCHEMAS
 # ============================================================================
-
 from src.schemas.item_schema import (
+    ItemAvailability,
     ItemBase,
     ItemCreate,
-    ItemUpdate,
-    ItemResponse,
-    ItemQRCode,
     ItemListResponse,
+    ItemQRCode,
+    ItemResponse,
     ItemStats,
+    ItemUpdate,
     PopularItem,
-    ItemAvailability,
-)
-
-# ============================================================================
-# TRANSACTION / ORDER SCHEMAS
-# ============================================================================
-
-from src.schemas.transaction_schema import (
-    TransactionBase,
-    TransactionCreate,
-    TransactionReturn,
-    TransactionUpdate,
-    TransactionResponse,
-    TransactionDetailResponse,
-    TransactionListResponse,
-
-    RequestCreate,
-    RequestUpdate,
-    RequestResponse,
-    RequestDetailResponse,
-    RequestListResponse,
-
-    OrderCreate,
-    OrderUpdate,
-    OrderResponse,
-    OrderListResponse,
 )
 
 # ============================================================================
 # REVIEW SCHEMAS
 # ============================================================================
-
 from src.schemas.review_schema import (
     ReviewBase,
     ReviewCreate,
-    ReviewUpdate,
-    ReviewResponse,
     ReviewDetailResponse,
     ReviewListResponse,
+    ReviewResponse,
+    ReviewUpdate,
+)
+
+# ============================================================================
+# TRANSACTION / ORDER SCHEMAS
+# ============================================================================
+from src.schemas.transaction_schema import (
+    OrderCreate,
+    OrderListResponse,
+    OrderResponse,
+    OrderUpdate,
+    RequestCreate,
+    RequestDetailResponse,
+    RequestListResponse,
+    RequestResponse,
+    RequestUpdate,
+    TransactionBase,
+    TransactionCreate,
+    TransactionDetailResponse,
+    TransactionListResponse,
+    TransactionResponse,
+    TransactionReturn,
+    TransactionUpdate,
+)
+from src.schemas.user_schema import (
+    UserBase,
+    UserChangePassword,
+    UserCreate,
+    UserListResponse,
+    UserQRCode,
+    UserResponse,
+    UserStats,
+    UserUpdate,
 )
 
 # ============================================================================
@@ -78,59 +72,47 @@ from src.schemas.review_schema import (
 # ============================================================================
 
 __all__ = [
-    # Users
-    "UserBase",
-    "UserCreate",
-    "UserUpdate",
-    "UserChangePassword",
-    "UserResponse",
-    "UserQRCode",
-    "UserListResponse",
-    "UserStats",
-
-    # Items
+    "ItemAvailability",
     "ItemBase",
     "ItemCreate",
-    "ItemUpdate",
-    "ItemResponse",
-    "ItemQRCode",
     "ItemListResponse",
+    "ItemQRCode",
+    "ItemResponse",
     "ItemStats",
+    "ItemUpdate",
+    "OrderCreate",
+    "OrderListResponse",
+    "OrderResponse",
+    "OrderUpdate",
     "PopularItem",
-    "ItemAvailability",
-
-    # Transactions
-    "TransactionBase",
-    "TransactionCreate",
-    "TransactionReturn",
-    "TransactionUpdate",
-    "TransactionResponse",
-    "TransactionDetailResponse",
-    "TransactionListResponse",
-
-    # QR workflows
     "QRBorrowRequest",
     "QRBulkBorrowRequest",
-    "QRReturnRequest",
     "QRBulkReturnRequest",
-
-    # Orders
-    "OrderCreate",
-    "OrderUpdate",
-    "OrderResponse",
-    "OrderListResponse",
-
-    # Legacy request aliases
+    "QRReturnRequest",
     "RequestCreate",
-    "RequestUpdate",
     "RequestDetailResponse",
     "RequestListResponse",
-
-    # Reviews
+    "RequestResponse",
+    "RequestUpdate",
     "ReviewBase",
     "ReviewCreate",
-    "ReviewUpdate",
-    "ReviewResponse",
     "ReviewDetailResponse",
     "ReviewListResponse",
+    "ReviewResponse",
+    "ReviewUpdate",
+    "TransactionBase",
+    "TransactionCreate",
+    "TransactionDetailResponse",
+    "TransactionListResponse",
+    "TransactionResponse",
+    "TransactionReturn",
+    "TransactionUpdate",
+    "UserBase",
+    "UserChangePassword",
+    "UserCreate",
+    "UserListResponse",
+    "UserQRCode",
+    "UserResponse",
+    "UserStats",
+    "UserUpdate",
 ]

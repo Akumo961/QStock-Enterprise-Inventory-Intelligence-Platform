@@ -8,9 +8,9 @@ external metrics backend without changing the AI pipeline API.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from threading import Lock
-from typing import Iterable
 
 
 @dataclass(frozen=True)

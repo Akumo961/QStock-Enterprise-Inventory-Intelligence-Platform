@@ -1,23 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from typing import List, Optional
 import math
 
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
 from src.core.database import get_db
-from src.core.security import get_current_user, get_current_admin_user, get_password_hash
 from src.core.qr_generator import qr_generator
-from src.models.user import User
-from src.models.transaction import Transaction
+from src.core.security import get_current_admin_user, get_current_user, get_password_hash
 from src.models.review import Review
+from src.models.transaction import Transaction
+from src.models.user import User
 from src.schemas.user_schema import (
+    UserChangePassword,
     UserCreate,
-    UserUpdate,
-    UserResponse,
     UserListResponse,
     UserQRCode,
+    UserResponse,
     UserStats,
-    UserChangePassword
+    UserUpdate,
 )
 
 router = APIRouter( tags=["Users"])
@@ -100,10 +100,10 @@ async def create_user(
 async def list_users(
         page: int = Query(1, ge=1),
         page_size: int = Query(50, ge=1, le=100),
-        search: Optional[str] = None,
-        is_active: Optional[bool] = None,
-        is_admin: Optional[bool] = None,
-        department: Optional[str] = None,
+        search: str | None = None,
+        is_active: bool | None = None,
+        is_admin: bool | None = None,
+        department: str | None = None,
         db: Session = Depends(get_db),
         current_admin: User = Depends(get_current_admin_user)
 ):

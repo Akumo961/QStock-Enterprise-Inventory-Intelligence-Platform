@@ -1,27 +1,30 @@
 """
 Main FastAPI application for QR Code Inventory Management System
 """
-from fastapi import FastAPI, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 
-from src.core.config import settings
-from src.core.database import init_db, get_db, engine
-from src.core.security import get_password_hash
-from src.core.qr_generator import qr_generator
-from src.models.user import User
+from fastapi import FastAPI, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
+
+from src.api.endpoints.ai import router as ai_router
 
 # Importer les routers directement depuis leurs fichiers
 from src.api.endpoints.auth import router as auth_router
-from src.api.endpoints.users import router as users_router
-from src.api.endpoints.items import router as items_router
-from src.api.endpoints.transactions import router as transactions_router
-from src.api.endpoints.orders import router as orders_router
 from src.api.endpoints.dashboard import router as dashboard_router
-from src.api.endpoints.reviews import router as reviews_router
-from src.api.endpoints.ai import router as ai_router
+from src.api.endpoints.items import router as items_router
+from src.api.endpoints.orders import router as orders_router
 from src.api.endpoints.reports import router as reports_router
+from src.api.endpoints.reviews import router as reviews_router
+from src.api.endpoints.transactions import router as transactions_router
+from src.api.endpoints.users import router as users_router
+from src.core.config import settings
+from src.core.database import engine, get_db, init_db
+from src.core.qr_generator import qr_generator
+from src.core.security import get_password_hash
+from src.models.user import User
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -125,8 +128,8 @@ async def health_check():
             conn.execute(text("SELECT 1"))
 
         db_status = "connected"
-    except Exception as e:
-        db_status = f"error: {str(e)}"
+    except SQLAlchemyError as e:
+        db_status = f"error: {e!s}"
 
     return {
         "status": "healthy",

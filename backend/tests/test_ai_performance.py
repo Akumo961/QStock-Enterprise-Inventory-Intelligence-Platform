@@ -1,4 +1,4 @@
-from src.ai.performance import AIRequestMetric, AIMetrics
+from src.ai.performance import AIMetrics, AIRequestMetric
 
 
 def test_ai_metrics_calculates_p50_and_p95():

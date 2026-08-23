@@ -3,15 +3,14 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Deque, Dict, List, Tuple
 
 # (question, answer) pairs
-_HistoryEntry = Tuple[str, str]
+_HistoryEntry = tuple[str, str]
 
 _LOCK = threading.Lock()
-_STORE: Dict[int, Deque[_HistoryEntry]] = {}
-_META_STORE: Dict[int, Deque["TurnMetadata"]] = {}
-_LAST_SEEN: Dict[int, float] = {}
+_STORE: dict[int, deque[_HistoryEntry]] = {}
+_META_STORE: dict[int, deque["TurnMetadata"]] = {}
+_LAST_SEEN: dict[int, float] = {}
 
 DEFAULT_MAX_TURNS = 3
 DEFAULT_TTL_SECONDS = 30 * 60  # 30 minutes of inactivity
@@ -32,7 +31,7 @@ def get_history(
     user_id: int,
     max_turns: int = DEFAULT_MAX_TURNS,
     ttl_seconds: int = DEFAULT_TTL_SECONDS,
-) -> List[_HistoryEntry]:
+) -> list[_HistoryEntry]:
     """Return the recent (question, answer) history for a user, oldest first."""
     with _LOCK:
         _expire_if_stale(user_id, ttl_seconds)
@@ -81,7 +80,7 @@ def get_turn_metadata(
     user_id: int,
     max_turns: int = DEFAULT_MAX_TURNS,
     ttl_seconds: int = DEFAULT_TTL_SECONDS,
-) -> List[TurnMetadata]:
+) -> list[TurnMetadata]:
     """Return recent structured turns, oldest first."""
     with _LOCK:
         _expire_if_stale(user_id, ttl_seconds)

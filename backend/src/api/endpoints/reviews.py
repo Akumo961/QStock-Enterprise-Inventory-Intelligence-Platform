@@ -4,25 +4,24 @@ Employees can submit reviews after returning items.
 """
 
 import math
-from datetime import datetime, timedelta
-from typing import List, Optional
+from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import desc
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.core.database import get_db
-from src.core.security import get_current_user, get_current_admin_user
+from src.core.security import get_current_admin_user, get_current_user
 from src.models.item import Item
 from src.models.review import Review
 from src.models.transaction import Transaction, TransactionStatus
 from src.models.user import User
 from src.schemas.review_schema import (
     ReviewCreate,
-    ReviewUpdate,
-    ReviewResponse,
     ReviewDetailResponse,
     ReviewListResponse,
+    ReviewUpdate,
 )
 
 router = APIRouter(
@@ -139,22 +138,22 @@ async def create_review(
         db.commit()
         db.refresh(db_review)
         return _to_detail(db_review, db)
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating review: {str(e)}",
-        )
+            detail="Error creating review",
+        ) from e
 
 
 @router.get("/", response_model=ReviewListResponse)
 async def get_all_reviews(
         page: int = Query(1, ge=1),
         page_size: int = Query(50, ge=1, le=100),
-        item_id: Optional[int] = Query(None, description="Filter by item ID"),
-        user_id: Optional[int] = Query(None, description="Filter by user ID"),
-        min_rating: Optional[int] = Query(None, ge=1, le=5, description="Minimum rating"),
-        has_issue: Optional[bool] = Query(None, description="Filter by issue-reported reviews"),
+        item_id: int | None = Query(None, description="Filter by item ID"),
+        user_id: int | None = Query(None, description="Filter by user ID"),
+        min_rating: int | None = Query(None, ge=1, le=5, description="Minimum rating"),
+        has_issue: bool | None = Query(None, description="Filter by issue-reported reviews"),
         db: Session = Depends(get_db),
         current_admin: User = Depends(get_current_admin_user),
 ):
@@ -191,7 +190,7 @@ async def get_review_summary(
         current_admin: User = Depends(get_current_admin_user),
 ):
     """Get summary statistics for reviews (admin only)."""
-    since_date = datetime.utcnow() - timedelta(days=days)
+    since_date = datetime.now(UTC) - timedelta(days=days)
     reviews_query = db.query(Review).filter(Review.created_at >= since_date)
     reviews = reviews_query.all()
     total_reviews = len(reviews)
@@ -403,12 +402,12 @@ async def update_review(
         db.commit()
         db.refresh(review)
         return _to_detail(review, db)
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating review: {str(e)}",
-        )
+            detail="Error updating review",
+        ) from e
 
 
 @router.delete("/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -434,11 +433,10 @@ async def delete_review(
     try:
         db.delete(review)
         db.commit()
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting review: {str(e)}",
-        )
+            detail="Error deleting review",
+        ) from e
 
-    return None

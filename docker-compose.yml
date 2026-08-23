@@ -1,58 +1,88 @@
-version: '3.8'
+version: "3.8"
 
 services:
+
   postgres:
     image: postgres:15-alpine
     container_name: qr-inventory-postgres
     restart: unless-stopped
+
     environment:
       POSTGRES_DB: qr_inventory
-      POSTGRES_USER: qr_user
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_USER: qr_admin
+      POSTGRES_PASSWORD: Kaido1234
+
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
     ports:
       - "5432:5432"
+
     networks:
       - qr-network
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U qr_user"]
+      test: ["CMD-SHELL", "pg_isready -U qr_admin -d qr_inventory"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+
     container_name: qr-inventory-backend
+
     restart: unless-stopped
+
     depends_on:
       postgres:
         condition: service_healthy
+
     environment:
-      DATABASE_URL: postgresql://qr_user:${POSTGRES_PASSWORD}@postgres:5432/qr_inventory
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
+
+      DATABASE_URL: postgresql://qr_admin:Kaido1234@postgres:5432/qr_inventory
+
+      SECRET_KEY: production-secret-key
+
       ALLOWED_ORIGINS: http://localhost,http://localhost:80
+
     volumes:
       - ./backend/uploads:/app/uploads
+
     ports:
       - "8000:8000"
+
     networks:
       - qr-network
+
+
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+
     container_name: qr-inventory-frontend
+
     restart: unless-stopped
+
     depends_on:
       - backend
+
     ports:
       - "80:80"
+
     networks:
       - qr-network
 
+
 networks:
+
   qr-network:
     driver: bridge
 
+
 volumes:
+
   postgres_data:

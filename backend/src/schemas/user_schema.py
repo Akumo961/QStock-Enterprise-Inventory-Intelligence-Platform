@@ -1,14 +1,14 @@
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
-from typing import Optional
 from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserBase(BaseModel):
     email: EmailStr
     full_name: str = Field(..., min_length=1, max_length=255)
-    department: Optional[str] = Field(None, max_length=100)
+    department: str | None = Field(None, max_length=100)
     phone: str = Field(..., min_length=5, max_length=20, description="Required for every account, admin or regular user")
-    employee_id: Optional[str] = Field(None, max_length=50)
+    employee_id: str | None = Field(None, max_length=50)
 
 
 class UserCreate(UserBase):
@@ -17,12 +17,12 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    full_name: Optional[str] = Field(None, min_length=1, max_length=255)
-    department: Optional[str] = Field(None, max_length=100)
-    phone: Optional[str] = Field(None, min_length=5, max_length=20, description="If provided, cannot be blanked out — phone is mandatory once set")
-    employee_id: Optional[str] = Field(None, max_length=50)
-    is_active: Optional[bool] = None
-    is_admin: Optional[bool] = None
+    full_name: str | None = Field(None, min_length=1, max_length=255)
+    department: str | None = Field(None, max_length=100)
+    phone: str | None = Field(None, min_length=5, max_length=20, description="If provided, cannot be blanked out — phone is mandatory once set")
+    employee_id: str | None = Field(None, max_length=50)
+    is_active: bool | None = None
+    is_admin: bool | None = None
 
 
 class UserChangePassword(BaseModel):
@@ -34,7 +34,7 @@ class UserResponse(UserBase):
 
     id: int
     qr_code_data: str
-    qr_code_image: Optional[str] = None
+    qr_code_image: str | None = None
     is_active: bool
     is_admin: bool
     created_at: datetime

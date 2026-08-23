@@ -1,18 +1,19 @@
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-from datetime import timedelta
 from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy.orm import Session
 
+from src.core.config import settings
 from src.core.database import get_db
+from src.core.qr_generator import qr_generator
 from src.core.security import (
     authenticate_user,
     create_access_token,
     get_current_user,
-    get_password_hash
+    get_password_hash,
 )
-from src.core.config import settings
-from src.core.qr_generator import qr_generator
 from src.models.user import User
 from src.schemas.user_schema import UserResponse
 

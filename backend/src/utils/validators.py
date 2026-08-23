@@ -11,11 +11,9 @@ Provides comprehensive validation functions for:
 - General input sanitization
 """
 
-import re
-from typing import Optional, List, Union
-from datetime import datetime
 import mimetypes
-
+import re
+from datetime import UTC, datetime
 
 # ============================================================================
 # EMAIL VALIDATION
@@ -62,11 +60,10 @@ def validate_email(email: str) -> bool:
     # Check domain length
     if len(domain) > 253:
         return False
+    return len(domain) <= 253
 
-    return True
 
-
-def is_company_email(email: str, allowed_domains: List[str]) -> bool:
+def is_company_email(email: str, allowed_domains: list[str]) -> bool:
     """
     Check if email belongs to allowed company domains.
 
@@ -92,7 +89,7 @@ def is_company_email(email: str, allowed_domains: List[str]) -> bool:
 # PHONE NUMBER VALIDATION
 # ============================================================================
 
-def validate_phone(phone: str, country_code: Optional[str] = None) -> bool:
+def validate_phone(phone: str, country_code: str | None = None) -> bool:
     """
     Validate phone number format.
 
@@ -124,7 +121,7 @@ def validate_phone(phone: str, country_code: Optional[str] = None) -> bool:
     if not re.match(r'^\+?[0-9]{8,15}$', cleaned):
         return False
 
-    return True
+    return bool(re.match(r'^\+?[0-9]{8,15}$', cleaned))
 
 
 def normalize_phone(phone: str) -> str:
@@ -214,7 +211,7 @@ def generate_item_code(prefix: str = "ITEM", length: int = 8) -> str:
 # PASSWORD VALIDATION
 # ============================================================================
 
-def validate_password(password: str, min_length: int = 8) -> tuple[bool, List[str]]:
+def validate_password(password: str, min_length: int = 8) -> tuple[bool, list[str]]:
     """
     Validate password strength.
 
@@ -313,7 +310,7 @@ def calculate_password_strength(password: str) -> int:
 # QR CODE VALIDATION
 # ============================================================================
 
-def validate_qr_code_data(qr_data: str, expected_type: Optional[str] = None) -> bool:
+def validate_qr_code_data(qr_data: str, expected_type: str | None = None) -> bool:
     """
     Validate QR code data format.
 
@@ -371,7 +368,7 @@ def validate_qr_code_data(qr_data: str, expected_type: Optional[str] = None) -> 
 
 def sanitize_string(
         text: str,
-        max_length: Optional[int] = None,
+        max_length: int | None = None,
         allow_newlines: bool = False,
         strip_html: bool = True
 ) -> str:
@@ -459,7 +456,7 @@ def sanitize_filename(filename: str, max_length: int = 255) -> str:
 # FILE VALIDATION
 # ============================================================================
 
-def validate_file_extension(filename: str, allowed_extensions: List[str]) -> bool:
+def validate_file_extension(filename: str, allowed_extensions: list[str]) -> bool:
     """
     Validate file extension.
 
@@ -504,7 +501,7 @@ def validate_file_size(size_bytes: int, max_size_mb: float = 5.0) -> bool:
     return size_bytes <= max_size_bytes
 
 
-def get_safe_mime_type(filename: str) -> Optional[str]:
+def get_safe_mime_type(filename: str) -> str | None:
     """
     Get safe MIME type for a filename.
 
@@ -544,7 +541,7 @@ def validate_date_string(date_str: str, format_str: str = "%Y-%m-%d") -> bool:
         True
     """
     try:
-        datetime.strptime(date_str, format_str)
+        datetime.strptime(date_str, format_str).replace(tzinfo=UTC)
         return True
     except ValueError:
         return False
@@ -568,7 +565,7 @@ def validate_date_range(start_date: datetime, end_date: datetime) -> bool:
 # NUMERIC VALIDATION
 # ============================================================================
 
-def validate_positive_integer(value: Union[int, str]) -> bool:
+def validate_positive_integer(value: int | str) -> bool:
     """
     Validate positive integer.
 

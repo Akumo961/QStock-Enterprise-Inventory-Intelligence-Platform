@@ -2,8 +2,8 @@
 Dashboard Schemas
 """
 
+
 from pydantic import BaseModel
-from typing import List, Optional
 
 
 class DashboardStats(BaseModel):
@@ -30,14 +30,14 @@ class PopularItemsStats(BaseModel):
     item_code: str
     category: str
     borrow_count: int
-    average_rating: Optional[float] = None
+    average_rating: float | None = None
 
 
 class RecentActivity(BaseModel):
     activity_type: str
     description: str
     user_name: str
-    item_name: Optional[str] = None
+    item_name: str | None = None
     timestamp: str | object
 
 
@@ -74,11 +74,11 @@ class ItemUtilization(BaseModel):
 
 class DashboardOverview(BaseModel):
     stats: DashboardStats
-    popular_items: List[PopularItemsStats]
-    recent_activities: List[RecentActivity]
-    borrowing_trends: List[BorrowingTrend]
-    category_distribution: List[CategoryDistribution]
-    top_users: List[UserActivity]
+    popular_items: list[PopularItemsStats]
+    recent_activities: list[RecentActivity]
+    borrowing_trends: list[BorrowingTrend]
+    category_distribution: list[CategoryDistribution]
+    top_users: list[UserActivity]
 
 
 # Legacy import compatibility

@@ -3,27 +3,27 @@ Dashboard and Analytics API Endpoints
 Provides statistics, trends, and insights for administrators
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from datetime import UTC, datetime, timedelta
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, and_, case
-from datetime import datetime, timedelta
-from typing import List, Optional
 
 from src.core.database import get_db
 from src.core.security import get_current_admin_user, get_current_user
-from src.models.user import User
-from src.models.item import Item, ItemStatus, ItemCategory
-from src.models.transaction import Transaction, TransactionStatus, Request
+from src.models.item import Item, ItemCategory, ItemStatus
 from src.models.review import Review
+from src.models.transaction import Request, Transaction, TransactionStatus
+from src.models.user import User
 from src.schemas.dashboard_schema import (
-    DashboardStats,
-    DashboardOverview,
-    PopularItemsStats,
-    RecentActivity,
     BorrowingTrend,
     CategoryDistribution,
+    DashboardOverview,
+    DashboardStats,
+    ItemUtilization,
+    PopularItemsStats,
+    RecentActivity,
     UserActivity,
-    ItemUtilization
 )
 
 router = APIRouter( tags=["Dashboard"])
@@ -80,7 +80,7 @@ async def get_dashboard_stats(
     ).scalar() or 0
 
     # Overdue borrows (borrowed items past due date)
-    current_time = datetime.utcnow()
+    current_time = datetime.now(UTC)
     overdue_borrows = db.query(func.count(Transaction.id)).filter(
         Transaction.status == TransactionStatus.BORROWED,
         Transaction.due_date < current_time
@@ -116,10 +116,10 @@ async def get_dashboard_stats(
 # POPULAR ITEMS ANALYTICS
 # ============================================================================
 
-@router.get("/popular-items", response_model=List[PopularItemsStats])
+@router.get("/popular-items", response_model=list[PopularItemsStats])
 async def get_popular_items(
         limit: int = Query(10, ge=1, le=50, description="Number of items to return"),
-        days: Optional[int] = Query(None, ge=1, description="Filter by last N days"),
+        days: int | None = Query(None, ge=1, description="Filter by last N days"),
         db: Session = Depends(get_db),
         current_admin: User = Depends(get_current_admin_user)
 ):
@@ -155,7 +155,7 @@ async def get_popular_items(
 
     # Filter by date range if specified
     if days:
-        date_threshold = datetime.utcnow() - timedelta(days=days)
+        date_threshold = datetime.now(UTC) - timedelta(days=days)
         query = query.filter(Transaction.borrowed_at >= date_threshold)
 
     # Group and order
@@ -182,10 +182,10 @@ async def get_popular_items(
 # ACTIVITY TRACKING
 # ============================================================================
 
-@router.get("/recent-activities", response_model=List[RecentActivity])
+@router.get("/recent-activities", response_model=list[RecentActivity])
 async def get_recent_activities(
         limit: int = Query(20, ge=1, le=100, description="Number of activities to return"),
-        activity_types: Optional[List[str]] = Query(
+        activity_types: list[str] | None = Query(
             None,
             description="Filter by activity types: borrow, return, review, request"
         ),
@@ -221,24 +221,30 @@ async def get_recent_activities(
             user = db.query(User).filter(User.id == trans.user_id).first()
             item = db.query(Item).filter(Item.id == trans.item_id).first()
 
-            if trans.status == TransactionStatus.BORROWED:
-                if not activity_types or 'borrow' in activity_types:
-                    activities.append(RecentActivity(
-                        activity_type="borrow",
-                        description=f"borrowed {item.name if item else 'an item'}",
-                        user_name=user.full_name if user else "Unknown User",
-                        item_name=item.name if item else None,
-                        timestamp=trans.borrowed_at
-                    ))
-            elif trans.status == TransactionStatus.RETURNED:
-                if not activity_types or 'return' in activity_types:
-                    activities.append(RecentActivity(
-                        activity_type="return",
-                        description=f"returned {item.name if item else 'an item'}",
-                        user_name=user.full_name if user else "Unknown User",
-                        item_name=item.name if item else None,
-                        timestamp=trans.returned_at or trans.created_at
-                    ))
+            if (
+                    trans.status == TransactionStatus.BORROWED
+                    and (not activity_types or "borrow" in activity_types)
+            ):
+                activities.append(RecentActivity(
+                    activity_type="borrow",
+                    description=f"borrowed {item.name if item else 'an item'}",
+                    user_name=user.full_name if user else "Unknown User",
+                    item_name=item.name if item else None,
+                    timestamp=trans.borrowed_at
+                ))
+
+            elif (
+                    trans.status == TransactionStatus.RETURNED
+                    and (not activity_types or "return" in activity_types)
+            ):
+                activities.append(RecentActivity(
+                    activity_type="return",
+                    description=f"returned {item.name if item else 'an item'}",
+                    user_name=user.full_name if user else "Unknown User",
+                    item_name=item.name if item else None,
+                    timestamp=trans.returned_at or trans.created_at
+                ))
+
 
     # Fetch recent reviews
     if not activity_types or 'review' in activity_types:
@@ -289,7 +295,7 @@ async def get_recent_activities(
 # TREND ANALYSIS
 # ============================================================================
 
-@router.get("/borrowing-trends", response_model=List[BorrowingTrend])
+@router.get("/borrowing-trends", response_model=list[BorrowingTrend])
 async def get_borrowing_trends(
         days: int = Query(30, ge=7, le=365, description="Number of days to analyze"),
         db: Session = Depends(get_db),
@@ -311,7 +317,7 @@ async def get_borrowing_trends(
     Returns:
         Daily borrow and return counts for the period
     """
-    start_date = datetime.utcnow() - timedelta(days=days)
+    start_date = datetime.now(UTC) - timedelta(days=days)
     trends = []
 
     for i in range(days):
@@ -344,7 +350,7 @@ async def get_borrowing_trends(
 # CATEGORY ANALYTICS
 # ============================================================================
 
-@router.get("/category-distribution", response_model=List[CategoryDistribution])
+@router.get("/category-distribution", response_model=list[CategoryDistribution])
 async def get_category_distribution(
         db: Session = Depends(get_db),
         current_admin: User = Depends(get_current_admin_user)
@@ -387,7 +393,7 @@ async def get_category_distribution(
 # USER ACTIVITY ANALYTICS
 # ============================================================================
 
-@router.get("/top-users", response_model=List[UserActivity])
+@router.get("/top-users", response_model=list[UserActivity])
 async def get_top_users(
         limit: int = Query(10, ge=1, le=50, description="Number of users to return"),
         sort_by: str = Query("total_borrows", regex="^(total_borrows|active_borrows|overdue_items)$"),
@@ -426,7 +432,7 @@ async def get_top_users(
     ).limit(limit).all()
 
     result = []
-    current_time = datetime.utcnow()
+    current_time = datetime.now(UTC)
 
     for user_data in top_users:
         # Get active borrows count
@@ -464,10 +470,10 @@ async def get_top_users(
 # ITEM UTILIZATION
 # ============================================================================
 
-@router.get("/item-utilization", response_model=List[ItemUtilization])
+@router.get("/item-utilization", response_model=list[ItemUtilization])
 async def get_item_utilization(
         limit: int = Query(20, ge=1, le=100),
-        category: Optional[ItemCategory] = None,
+        category: ItemCategory | None = None,
         db: Session = Depends(get_db),
         current_admin: User = Depends(get_current_admin_user)
 ):
@@ -514,7 +520,11 @@ async def get_item_utilization(
         item_obj = db.query(Item).filter(Item.id == item.id).first()
         if item_obj:
             created_at = item_obj.created_at
-            now = datetime.now(created_at.tzinfo) if created_at.tzinfo else datetime.utcnow()
+            now = (
+                datetime.now(created_at.tzinfo)
+                if created_at.tzinfo
+                else datetime.now(UTC)
+            )
             days_since_creation = (now - created_at).days or 1
             months_since_creation = days_since_creation / 30.0
             utilization_rate = item.borrow_count / months_since_creation if months_since_creation > 0 else 0
@@ -606,7 +616,7 @@ async def get_health_metrics(
     Returns:
         Dictionary of health metrics
     """
-    current_time = datetime.utcnow()
+    current_time = datetime.now(UTC)
 
     # Total active borrows
     total_active = db.query(func.count(Transaction.id)).filter(
