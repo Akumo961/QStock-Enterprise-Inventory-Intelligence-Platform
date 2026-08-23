@@ -1,6 +1,14 @@
 # Python virtual environments
-QR/
 backend/QR/
+backend/.venv/
+backend/venv/
+
+# Security scan outputs
+backend/secrets-report.json
+
+# Python cache
+__pycache__/
+*.pyc
 
 # Environment Variables
 .env
