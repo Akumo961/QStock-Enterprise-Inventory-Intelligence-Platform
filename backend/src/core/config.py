@@ -54,8 +54,8 @@ class Settings(BaseSettings):
     MAIL_SSL: bool = False
 
     # Initial admin setup - credentials must come from the environment.
-    INITIAL_ADMIN_EMAIL: str = ""
-    INITIAL_ADMIN_PASSWORD: str = ""
+    INITIAL_ADMIN_EMAIL: str
+    INITIAL_ADMIN_PASSWORD: str
     INITIAL_ADMIN_NAME: str = "System Administrator"
     INITIAL_ADMIN_PHONE: str = ""
 
