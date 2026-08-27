@@ -12,6 +12,20 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: qr_inventory
+          POSTGRES_USER: qr_admin
+          POSTGRES_PASSWORD: ci-placeholder-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U qr_admin -d qr_inventory"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: backend
@@ -25,11 +39,29 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt pytest ruff
       - name: Compile check
-        run: python -m compileall -q src
+        run: python -m compileall -q src alembic
       - name: Lint
-        run: ruff check src tests
+        run: ruff check src tests alembic
       - name: Tests
         run: pytest -q
+      - name: Apply database migrations
+        run: alembic upgrade head
+        env:
+          DATABASE_URL: postgresql://qr_admin:ci-placeholder-password@127.0.0.1:5432/qr_inventory
+          SECRET_KEY: ci-placeholder-secret-key
+          INITIAL_ADMIN_EMAIL: admin@test.com
+          INITIAL_ADMIN_PASSWORD: TestPassword123!
+          INITIAL_ADMIN_NAME: CI Admin
+          INITIAL_ADMIN_PHONE: "0000000000"
+      - name: Verify migration state
+        run: alembic current
+        env:
+          DATABASE_URL: postgresql://qr_admin:ci-placeholder-password@127.0.0.1:5432/qr_inventory
+          SECRET_KEY: ci-placeholder-secret-key
+          INITIAL_ADMIN_EMAIL: admin@test.com
+          INITIAL_ADMIN_PASSWORD: TestPassword123!
+          INITIAL_ADMIN_NAME: CI Admin
+          INITIAL_ADMIN_PHONE: "0000000000"
 
   frontend:
     runs-on: ubuntu-latest
