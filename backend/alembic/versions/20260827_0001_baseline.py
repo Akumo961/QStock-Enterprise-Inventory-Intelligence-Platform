@@ -10,6 +10,7 @@ PostgreSQL database can be initialized through Alembic instead of relying on
 application startup DDL.
 """
 
+# ruff: noqa: I001
 from collections.abc import Sequence
 
 from alembic import op
