@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from src.core.config import settings
@@ -9,7 +9,7 @@ engine = create_engine(
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=10,
-    max_overflow=20
+    max_overflow=20,
 )
 
 # Create session factory
@@ -33,8 +33,11 @@ def get_db():
 
 def init_db():
     """
-    Initialize database tables.
-    Creates all tables defined in models.
-    """
+    Verify database connectivity.
 
-    Base.metadata.create_all(bind=engine)
+    Schema creation and upgrades are owned by Alembic. Keeping DDL out of
+    application startup prevents an application process from silently
+    mutating production schema.
+    """
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
