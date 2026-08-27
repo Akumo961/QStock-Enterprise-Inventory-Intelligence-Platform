@@ -12,6 +12,13 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://qr_admin:ci-placeholder-password@127.0.0.1:5432/qr_inventory
+      SECRET_KEY: ci-placeholder-secret-key
+      INITIAL_ADMIN_EMAIL: admin@test.com
+      INITIAL_ADMIN_PASSWORD: TestPassword123!
+      INITIAL_ADMIN_NAME: CI Admin
+      INITIAL_ADMIN_PHONE: "0000000000"
     services:
       postgres:
         image: postgres:15-alpine
@@ -46,22 +53,8 @@ jobs:
         run: pytest -q
       - name: Apply database migrations
         run: alembic upgrade head
-        env:
-          DATABASE_URL: postgresql://qr_admin:ci-placeholder-password@127.0.0.1:5432/qr_inventory
-          SECRET_KEY: ci-placeholder-secret-key
-          INITIAL_ADMIN_EMAIL: admin@test.com
-          INITIAL_ADMIN_PASSWORD: TestPassword123!
-          INITIAL_ADMIN_NAME: CI Admin
-          INITIAL_ADMIN_PHONE: "0000000000"
       - name: Verify migration state
         run: alembic current
-        env:
-          DATABASE_URL: postgresql://qr_admin:ci-placeholder-password@127.0.0.1:5432/qr_inventory
-          SECRET_KEY: ci-placeholder-secret-key
-          INITIAL_ADMIN_EMAIL: admin@test.com
-          INITIAL_ADMIN_PASSWORD: TestPassword123!
-          INITIAL_ADMIN_NAME: CI Admin
-          INITIAL_ADMIN_PHONE: "0000000000"
 
   frontend:
     runs-on: ubuntu-latest
