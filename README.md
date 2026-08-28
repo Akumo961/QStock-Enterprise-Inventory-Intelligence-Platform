@@ -1,228 +1,140 @@
 # QStock — Enterprise Inventory Intelligence Platform
 
-> **Production-oriented AI engineering platform for inventory intelligence, operational workflows, and natural-language access to structured business data.**
+> **Production-oriented AI engineering platform for natural-language access to structured inventory data, secure NL→SQL, operational workflows, and measurable AI reliability.**
 
 **250+ users** · **Python** · **FastAPI** · **PostgreSQL** · **React/TypeScript** · **OpenAI** · **Ollama** · **Docker** · **GitHub Actions**
 
 ---
 
+## Overview
+
+QStock is an end-to-end inventory intelligence platform developed for **Scouts Musulmans de Montréal** and used by **250+ users**.
+
+The platform combines inventory operations with an AI assistant that allows users to ask questions about structured business data in natural language. Instead of exposing raw SQL directly to users, QStock applies a controlled **natural-language-to-SQL (NL→SQL)** workflow with deterministic routing, reusable query templates, LLM-assisted generation for harder requests, SQL validation, read-only execution, and grounded responses.
+
+QStock is engineered as a complete application rather than an isolated LLM demo, combining AI orchestration, relational data, authentication, authorization, frontend workflows, safety controls, evaluation, observability, automated testing, and CI/CD.
+
 ## Why QStock?
 
-QStock is an end-to-end inventory intelligence platform built for **Scouts Musulmans de Montréal** and used by **250+ users**.
+A useful enterprise AI system must do more than generate plausible text. It must:
 
-The platform combines conventional inventory operations with an AI assistant that lets users ask questions about structured operational data in natural language. Instead of exposing raw SQL to users, QStock applies an AI workflow that routes requests, generates or selects safe queries, validates them, executes read-only database operations, and produces grounded user-facing responses.
+- understand the user's intent
+- access the correct structured data
+- constrain untrusted model output
+- protect sensitive operations
+- return grounded results
+- remain testable and observable
+- control model latency and cost
 
-The project was engineered as an application—not as an isolated LLM demo—with authentication, authorization, database integration, frontend workflows, AI safety controls, evaluation, performance instrumentation, automated testing, and CI/CD quality gates.
-
----
-
-## Highlights
-
-### 🤖 AI-powered inventory assistant
-
-- Natural-language interaction with structured inventory data
-- English and French query handling
-- Intent classification and routing
-- Template-based SQL generation for predictable queries
-- LLM-assisted SQL generation for more complex requests
-- Read-only SQL execution
-- Grounded response generation
-- Follow-up conversation support
-- OpenAI and Ollama provider support
-
-### 🛡️ AI & data safety
-
-- Prompt-injection defenses
-- Untrusted-input boundaries
-- SQL safety validation
-- Destructive-query protection
-- Sensitive-column restrictions
-- Read-only database execution
-- Input validation and bounded request size
-- Environment-based secret configuration
-
-### 📊 AI evaluation & reliability
-
-- Versioned AI evaluation dataset
-- Intent classification regression tests
-- SQL safety regression tests
-- Multilingual test cases
-- Follow-up query scenarios
-- Prompt-injection test cases
-- Deterministic test suite that does not require external LLM calls
-- AI regression tests integrated into CI
-
-### ⚡ Performance & cost awareness
-
-QStock instruments the AI workflow to measure:
-
-- p50 / p95 latency
-- LLM call count
-- Input/output token usage
-- Estimated model cost
-- SQL-template hit rate
-- Deterministic-response rate
-- Pipeline-level timing
-
-The architecture deliberately avoids unnecessary LLM calls when deterministic or template-based processing is sufficient.
-
-### 🏭 Production engineering
-
-- FastAPI REST backend
-- React/TypeScript frontend
-- PostgreSQL persistence
-- Docker / Docker Compose
-- GitHub Actions CI
-- Backend linting and automated tests
-- Frontend production build validation
-- Docker build validation
-- Dependabot dependency monitoring
-- Production deployment and rollback runbook
+QStock demonstrates this approach through a **template-first, policy-controlled AI query architecture**.
 
 ---
 
-## Architecture
+## AI Architecture
 
 ```text
-                         ┌─────────────────────────┐
-                         │       React / PWA       │
-                         │      TypeScript UI      │
-                         └────────────┬────────────┘
-                                      │
-                                      ▼
-                         ┌─────────────────────────┐
-                         │         FastAPI         │
-                         │       REST API          │
-                         └────────────┬────────────┘
-                                      │
-                         ┌────────────┴────────────┐
-                         │                         │
-                         ▼                         ▼
-                ┌─────────────────┐      ┌─────────────────────┐
-                │   PostgreSQL    │      │    AI Assistant      │
-                │ SQLAlchemy / DB │      │ OpenAI / Ollama      │
-                └─────────────────┘      └──────────┬──────────┘
-                                                     │
-                                                     ▼
-                                           ┌─────────────────────┐
-                                           │ Input / Policy      │
-                                           └──────────┬──────────┘
-                                                      │
-                                                      ▼
-                                           ┌─────────────────────┐
-                                           │ Intent Classification│
-                                           └──────────┬──────────┘
-                                                      │
-                                      ┌───────────────┴───────────────┐
-                                      │                               │
-                                      ▼                               ▼
-                              Template Match                  LLM SQL Generation
-                                      │                               │
-                                      └───────────────┬───────────────┘
-                                                      ▼
-                                           ┌─────────────────────┐
-                                           │    SQL Guard        │
-                                           │ safety / policy     │
-                                           └──────────┬──────────┘
-                                                      ▼
-                                           ┌─────────────────────┐
-                                           │ Read-only Executor  │
-                                           └──────────┬──────────┘
-                                                      ▼
-                                           ┌─────────────────────┐
-                                           │ Grounded Response   │
-                                           │ / deterministic     │
-                                           └──────────┬──────────┘
-                                                      ▼
-                                                 User Answer
+                         User Question
+                              │
+                              ▼
+                   Input / Policy Validation
+                              │
+                              ▼
+                     Intent Classification
+                              │
+                  ┌───────────┴───────────┐
+                  │                       │
+                  ▼                       ▼
+          General / Procedural      Inventory Query
+                  │                       │
+                  ▼                       ▼
+          Controlled Response       Template Matching
+                                          │
+                                   ┌──────┴──────┐
+                                   │             │
+                                  HIT           MISS
+                                   │             │
+                                   ▼             ▼
+                              Safe SQL     LLM SQL Generation
+                                   │             │
+                                   └──────┬──────┘
+                                          ▼
+                                   SQL Guard / Policy
+                                          │
+                                          ▼
+                                  Read-only Executor
+                                          │
+                                          ▼
+                                  Structured Results
+                                          │
+                                          ▼
+                             Grounded / Deterministic Answer
 ```
 
----
-
-## AI Request Lifecycle
-
-A typical inventory question follows this path:
-
-```text
-User question
-     │
-     ▼
-Input normalization & policy checks
-     │
-     ▼
-Intent classification
-     │
-     ├── General / procedural → controlled conversational response
-     │
-     └── Inventory query
-             │
-             ▼
-       Template matching
-             │
-        ┌────┴────┐
-        │         │
-       HIT       MISS
-        │         │
-        ▼         ▼
-   Safe SQL   LLM SQL generation
-        │         │
-        └────┬────┘
-             ▼
-        SQL validation
-             │
-             ▼
-       Read-only execution
-             │
-             ▼
-      Structured database data
-             │
-             ▼
-   Deterministic or grounded answer
-```
-
-This design reduces unnecessary model calls while keeping the LLM behind explicit application-level controls.
+This architecture deliberately keeps the LLM behind application-level controls. Model output is treated as **untrusted input**, not as an authorization mechanism.
 
 ---
 
 ## Core AI Engineering Decisions
 
-### 1. Template-first query generation
+### Template-first NL→SQL
 
-Known inventory questions can be resolved through predefined query templates instead of invoking an LLM. This reduces latency, model usage, and cost while improving determinism.
+Frequently requested inventory operations are resolved through predefined query templates. This improves determinism, reduces unnecessary LLM calls, lowers latency, and controls cost.
 
-### 2. LLM-assisted SQL with application validation
+### LLM fallback for complex requests
 
-For requests that cannot be handled by templates, the LLM can generate SQL. Generated SQL is treated as **untrusted output** and must pass application-level validation before execution.
+Requests that cannot be resolved deterministically can use LLM-assisted SQL generation. Generated SQL must pass validation before it can reach the database.
 
-### 3. Defense in depth
+### Defense in depth
 
-QStock does not rely on prompt instructions as its only security mechanism. AI-generated SQL is protected by application-level validation, read-only execution policies, query restrictions, and database access controls.
+QStock does not rely on a system prompt to enforce database security. It combines application-level validation, query restrictions, read-only execution, protected columns, and database access controls.
 
-### 4. Grounded responses
+### Grounded answers
 
-The assistant is designed to answer inventory questions from retrieved database results rather than inventing operational facts.
+Inventory answers are generated from structured database results rather than allowing the model to invent operational facts.
 
-### 5. Provider abstraction
+### Provider abstraction
 
-The application supports both hosted and locally running models through **OpenAI and Ollama**, allowing experimentation with different deployment and cost models.
+QStock supports hosted and locally running model providers through **OpenAI and Ollama**, allowing different development, privacy, deployment, and cost configurations.
 
 ---
 
-## Evaluation
+## Safety & Security
 
-QStock includes a versioned evaluation dataset covering representative AI behaviors such as:
+Security is treated as a system property.
+
+- JWT authentication
+- Role-based access control
+- Protected API endpoints
+- Pydantic input validation
+- Environment-based secret configuration
+- SQL safety validation
+- Read-only AI database workflow
+- Sensitive-column restrictions
+- Prompt-injection defenses
+- Bounded AI input
+- No production credentials in source control
+
+The AI assistant is intentionally prevented from becoming a general-purpose unrestricted database interface.
+
+See [`SECURITY.md`](SECURITY.md) for the vulnerability reporting policy.
+
+---
+
+## AI Evaluation & Reliability
+
+QStock includes a versioned evaluation and regression suite covering:
 
 - English inventory questions
 - French inventory questions
 - General/procedural questions
-- Follow-up questions
+- Follow-up queries
 - SQL safety violations
 - Sensitive-data requests
 - Prompt-injection attempts
 
-The regression suite measures deterministic behaviors such as intent routing and SQL safety without requiring an external LLM service.
+Deterministic regression tests do not require external LLM calls, making them suitable for repeatable CI execution.
 
-For live model evaluation, the project tracks the dimensions required to evaluate production AI behavior:
+For live AI evaluation, the system tracks the dimensions required to assess production behavior:
 
 ```text
 Intent accuracy
@@ -236,46 +148,65 @@ Token usage
 Estimated cost
 ```
 
-The repository intentionally does not claim production accuracy or cost figures that have not been measured against a representative live workload.
-
----
-
-## Security
-
-Security is treated as a system property rather than a prompt-only feature.
-
-- JWT authentication
-- Role-based access control
-- Protected API endpoints
-- Pydantic validation
-- Environment-based secrets
-- SQL safety validation
-- Read-only AI database workflow
-- Sensitive-column restrictions
-- Prompt-injection defenses
-- Bounded AI input
-- No production credentials in source control
-
-See [`SECURITY.md`](SECURITY.md) for the vulnerability reporting policy.
+The repository intentionally avoids unsupported production accuracy or cost claims. Performance numbers should be reported only when measured against representative workloads.
 
 ---
 
 ## Performance & Observability
 
-The AI pipeline records operational metrics without storing prompts, SQL statements, user IDs, or email addresses in the performance collector.
-
-Tracked metrics include:
+The AI pipeline instruments operational behavior, including:
 
 - request latency
 - p50 / p95 latency
 - LLM invocation count
-- token usage
-- estimated cost
+- input/output token usage
+- estimated model cost
 - template hit rate
-- deterministic answer rate
-- pipeline stage timings
+- deterministic response rate
+- pipeline stage timing
+
+The performance collector is designed not to store prompts, generated SQL, user IDs, or email addresses as telemetry payloads.
 
 See [`docs/AI_PERFORMANCE.md`](docs/AI_PERFORMANCE.md) for details.
+
+---
+
+## Production Engineering
+
+QStock integrates AI into a conventional software engineering stack:
+
+```text
+React / TypeScript
+        │
+        ▼
+     FastAPI
+        │
+   ┌────┴────┐
+   ▼         ▼
+PostgreSQL   AI Orchestrator
+             │
+             ├── Intent routing
+             ├── Templates
+             ├── LLM provider
+             ├── SQL validation
+             └── Grounded response
+
+Docker / Compose
+        │
+GitHub Actions
+        │
+Automated tests + builds
+```
+
+Production-oriented engineering practices include:
+
+- Docker / Docker Compose
+- GitHub Actions CI
+- Backend linting and automated tests
+- Frontend production build validation
+- Docker build validation
+- Dependabot dependency monitoring
+- Production deployment and rollback documentation
 
 ---
 
@@ -290,7 +221,18 @@ See [`docs/AI_PERFORMANCE.md`](docs/AI_PERFORMANCE.md) for details.
 - Reporting and operational analytics
 - Item reviews and ratings
 
-### User experience
+### AI Assistant
+
+- Natural-language inventory queries
+- English and French interaction
+- Intent classification
+- Template-based SQL
+- LLM-assisted SQL
+- Follow-up conversation support
+- Grounded responses
+- OpenAI / Ollama provider support
+
+### User Experience
 
 - Responsive React interface
 - Progressive Web App support
@@ -299,26 +241,43 @@ See [`docs/AI_PERFORMANCE.md`](docs/AI_PERFORMANCE.md) for details.
 - REST API
 - FastAPI-generated API documentation
 
-### Access control
-
-- JWT authentication
-- Role-based authorization
-- User and administrator permissions
-- Protected application endpoints
-
 ---
 
 ## Technology Stack
 
 | Layer | Technologies |
 |---|---|
-| AI | OpenAI APIs, Ollama, LLM orchestration, natural-language-to-SQL |
+| AI | OpenAI APIs, Ollama, LLM orchestration, NL→SQL |
 | Backend | Python, FastAPI, Pydantic, SQLAlchemy, Alembic |
 | Database | PostgreSQL |
 | Frontend | React, TypeScript, Vite, Material UI, React Router |
 | Infrastructure | Docker, Docker Compose, Nginx |
 | Quality | Pytest, Ruff, GitHub Actions |
 | Security | JWT, RBAC, SQL validation, environment-based secrets |
+
+---
+
+## Testing & CI/CD
+
+The repository includes automated quality gates for the major application layers:
+
+```text
+Python compilation
+      ↓
+Ruff linting
+      ↓
+Backend tests + AI regression tests
+      ↓
+Frontend production build
+      ↓
+Docker Compose validation
+      ↓
+Backend container build
+```
+
+Dependency updates are monitored through Dependabot.
+
+See [`docs/CI_CD.md`](docs/CI_CD.md) and [`docs/PRODUCTION_RUNBOOK.md`](docs/PRODUCTION_RUNBOOK.md).
 
 ---
 
@@ -355,18 +314,16 @@ QStock/
 - Python 3.11+
 - Node.js 20+
 - Docker / Docker Compose
-- PostgreSQL (or the provided Docker setup)
-- An OpenAI API key and/or a local Ollama installation, depending on the selected AI provider
+- PostgreSQL, or the provided Docker setup
+- An OpenAI API key and/or a local Ollama installation, depending on the selected provider
 
 ### Configuration
-
-Copy the example environment configuration and provide local values:
 
 ```bash
 cp .env.example .env
 ```
 
-**Never commit `.env` or production credentials.**
+Never commit `.env` or production credentials.
 
 ### Run with Docker
 
@@ -398,51 +355,27 @@ npm run build
 
 ---
 
-## CI/CD
-
-Every pull request targeting `main` is designed to pass automated quality gates covering:
-
-```text
-Python compilation
-      ↓
-Ruff linting
-      ↓
-Backend tests + AI regression tests
-      ↓
-Frontend production build
-      ↓
-Docker Compose validation
-      ↓
-Backend container build
-```
-
-Dependency updates are monitored through Dependabot.
-
-See [`docs/CI_CD.md`](docs/CI_CD.md) and [`docs/PRODUCTION_RUNBOOK.md`](docs/PRODUCTION_RUNBOOK.md).
-
----
-
 ## Real-World Impact
 
 QStock was developed for **Scouts Musulmans de Montréal** and has supported **250+ users**.
 
-The project demonstrates end-to-end engineering across:
+This makes QStock particularly valuable as an AI engineering portfolio project because the AI layer is integrated into an operational application with real users rather than presented only as a standalone prototype.
 
-**AI systems · backend services · relational data · security · frontend applications · evaluation · observability · performance · CI/CD**
+The project demonstrates:
 
-The goal is not simply to expose an LLM through a chat interface, but to integrate AI into a controlled operational software system.
+**AI systems · NL→SQL · backend engineering · relational data · security · frontend applications · evaluation · observability · performance · CI/CD**
 
 ---
 
 ## Engineering Focus
 
-QStock is primarily a portfolio project demonstrating practical **AI Engineering / Applied AI Engineering** capabilities:
+QStock demonstrates practical **AI Engineering / Applied AI Engineering** capabilities across the full system lifecycle:
 
 - production-oriented LLM integration
-- AI orchestration
 - natural-language interaction with structured enterprise data
+- deterministic and model-driven AI workflows
 - AI safety and guardrails
-- deterministic vs. model-driven workflows
+- secure NL→SQL
 - AI evaluation and regression testing
 - latency and cost instrumentation
 - containerization and CI/CD
@@ -452,13 +385,13 @@ QStock is primarily a portfolio project demonstrating practical **AI Engineering
 
 ## Documentation
 
-Additional project documentation is available under [`docs/`](docs/), including setup, user, administrator, AI quality, AI performance, CI/CD, and production runbook documentation.
+Additional documentation is available under [`docs/`](docs/), including setup, user, administrator, AI quality, AI performance, CI/CD, and production runbook documentation.
 
 ---
 
 ## Disclaimer
 
-QStock is provided as an engineering and portfolio project. Production deployments should use managed secret storage, HTTPS, environment-specific configuration, database backups, monitoring, least-privilege access, and an appropriate deployment platform.
+QStock is an engineering and portfolio project. Production deployments should use managed secret storage, HTTPS, environment-specific configuration, database backups, monitoring, least-privilege access, and an appropriate deployment platform.
 
 ## License
 
